@@ -160,8 +160,8 @@ export default function HomePage() {
                 <DeleteIcon />
               </span>
               <p className={styles.howText}>
-                녹음은 Google AI(Gemini)로 처리한 뒤 바로 삭제하고, 회의록도
-                서비스에 쌓아 두지 않습니다.
+                녹음은 Google AI(Gemini)로 처리한 뒤 바로 삭제합니다.
+                회의록도 서비스에 쌓아 두지 않습니다.
               </p>
             </div>
             <div className={styles.howItem}>

@@ -29,6 +29,13 @@ const IP_PATTERN = /^[0-9A-Fa-f:.]{2,45}$/;
 function normalizeIp(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let ip = raw.trim();
+  // Link-local IPv6 peers can carry a zone ID (fe80::1%eth0). The zone only
+  // names the local interface, so drop it rather than letting the `%` send
+  // the address into the shared UNKNOWN_CLIENT bucket.
+  const zoneAt = ip.indexOf("%");
+  if (zoneAt > 0 && ip.slice(0, zoneAt).includes(":")) {
+    ip = ip.slice(0, zoneAt);
+  }
   // IPv4 clients on a dual-stack socket show up as ::ffff:a.b.c.d.
   if (/^::ffff:\d{1,3}(\.\d{1,3}){3}$/i.test(ip)) ip = ip.slice(7);
   if (!IP_PATTERN.test(ip)) return null;

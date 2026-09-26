@@ -1,3 +1,4 @@
+import { Redis } from "@upstash/redis";
 import { describe, expect, it } from "vitest";
 
 import { createUpstashStore } from "@/lib/store/upstash";
@@ -30,6 +31,14 @@ function store() {
   return createUpstashStore();
 }
 
+/** Direct client, only for inspecting what the driver wrote (e.g. TTLs). */
+function rawRedis(): Redis {
+  return new Redis({
+    url: requireEnv("UPSTASH_REDIS_REST_URL"),
+    token: requireEnv("UPSTASH_REDIS_REST_TOKEN"),
+  });
+}
+
 function uniqueKey(label: string): string {
   return `test:store-local:${label}:${Math.random().toString(36).slice(2)}`;
 }
@@ -56,6 +65,52 @@ describe("upstash driver against local serverless-redis-http", () => {
     await expect(s.incr(key, { ttlSeconds: 30 })).resolves.toBe(1);
     await expect(s.incr(key, { ttlSeconds: 30 })).resolves.toBe(2);
     await expect(s.incr(key, { ttlSeconds: 30 })).resolves.toBe(3);
+  });
+
+  it("incr gives the counter a TTL on creation, and later incr doesn't extend it", async () => {
+    const s = store();
+    const r = rawRedis();
+    const key = uniqueKey("incr-ttl");
+    await s.incr(key, { ttlSeconds: 30 });
+    const first = await r.ttl(key);
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThanOrEqual(30);
+
+    // A much larger TTL on a later call must not replace the original one.
+    await s.incr(key, { ttlSeconds: 3_000 });
+    const second = await r.ttl(key);
+    expect(second).toBeGreaterThan(0);
+    expect(second).toBeLessThanOrEqual(30);
+  });
+
+  it("incr repairs a counter that somehow has no TTL", async () => {
+    const s = store();
+    const r = rawRedis();
+    const key = uniqueKey("incr-no-ttl");
+    await r.set(key, 4);
+    expect(await r.ttl(key)).toBe(-1);
+    try {
+      await expect(s.incr(key, { ttlSeconds: 30 })).resolves.toBe(5);
+      const ttl = await r.ttl(key);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(30);
+    } finally {
+      await r.del(key);
+    }
+  });
+
+  it("set and setIfAbsent write keys with a TTL", async () => {
+    const s = store();
+    const r = rawRedis();
+    const setKey = uniqueKey("set-ttl");
+    const nxKey = uniqueKey("nx-ttl");
+    await s.set(setKey, "value", { ttlSeconds: 30 });
+    await s.setIfAbsent(nxKey, "value", { ttlSeconds: 30 });
+    for (const key of [setKey, nxKey]) {
+      const ttl = await r.ttl(key);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(30);
+    }
   });
 
   it("setIfAbsent succeeds once, then reports the key is taken", async () => {

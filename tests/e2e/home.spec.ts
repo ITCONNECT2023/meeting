@@ -37,9 +37,16 @@ test("'회의록은 이렇게 만듭니다'에 가림 한계와 Gemini 삭제 �
     section.getByText("이름, 주소, 말로 풀어 읽은 번호", { exact: false }),
   ).toBeVisible();
   await expect(
-    section.getByText("Google AI(Gemini)로 처리한 뒤 바로 삭제", {
-      exact: false,
-    }),
+    section.getByText(
+      "녹음은 Google AI(Gemini)로 처리한 뒤 바로 삭제합니다.",
+      { exact: false },
+    ),
+  ).toBeVisible();
+  await expect(
+    section.getByText(
+      "녹음은 Google AI(Gemini)로 처리한 뒤 바로 삭제합니다. 회의록도 서비스에 쌓아 두지 않습니다.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(section.getByText("지원 형식: mp3 · m4a · wav")).toBeVisible();
 });
