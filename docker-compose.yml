@@ -1,0 +1,53 @@
+# Local-only stand-in for production Upstash Redis (EPIC 1~9; see
+# docs/04_개발계획.md D5). `npm run dev` / `npm run local` start this before
+# starting Next.js. `lib/store`'s upstash driver talks to
+# serverless-redis-http below exactly the way it talks to real Upstash in
+# production — only UPSTASH_REDIS_REST_URL/TOKEN differ.
+#
+# Both services are bound to 127.0.0.1 only: nothing here is reachable from
+# the LAN (a phone on the same Wi-Fi reaches Next.js, not Redis).
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No persistence: this store is meant to be disposable local/test data,
+    # matching the "everything expires, nothing is permanent" design.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8079:80"
+    environment:
+      SRH_MODE: env
+      # A fixed default token is fine here ONLY because this port is bound
+      # to 127.0.0.1 above (see the port mapping) — it is never reachable
+      # from the network. Override with SRH_TOKEN if you want a different
+      # one locally; scripts/lib/local-redis.mjs must then be given the same
+      # value via UPSTASH_REDIS_REST_TOKEN.
+      SRH_TOKEN: ${SRH_TOKEN:-local-dev-only-token}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    healthcheck:
+      # SRH speaks the Upstash REST protocol: there is no GET /ping route —
+      # a command is a POST of a JSON array to `/`. A successful PING means
+      # it can reach Redis. Needs a shell (CMD-SHELL) for the `| grep` pipe.
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - --header \"Authorization: Bearer ${SRH_TOKEN:-local-dev-only-token}\" --header \"Content-Type: application/json\" --post-data '[\"PING\"]' http://127.0.0.1:80/ | grep -q PONG",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
