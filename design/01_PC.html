@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>회의록 자동 작성 · PC 인터랙티브 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap">
+<style>
+html, body { margin: 0; height: 100%; }
+body { display: flex; flex-direction: column; background: #E4E1D9; color: #1C1B18; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; overflow: hidden; }
+.viewer-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 48px; padding: 0 20px; font-size: 13px; }
+.viewer-bar strong { font-weight: 700; }
+.viewer-bar span { color: #5E5A52; }
+.viewer-nav { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #D6D2C8; }
+.viewer-nav a { padding: 5px 12px; border-radius: 7px; color: #3D3A34; text-decoration: none; font-weight: 600; }
+.viewer-nav a[aria-current="page"] { background: #FFFFFF; color: #1C1B18; }
+.viewer-actions { display: flex; align-items: center; gap: 12px; }
+.viewer-actions button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #B5AFA3; border-radius: 8px; background: transparent; color: #1C1B18; cursor: pointer; }
+.viewer-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+#frame { flex: none; width: 1440px; height: 900px; border-radius: 12px; overflow: hidden; background: #F4F2EC; box-shadow: 0 24px 64px rgba(28, 27, 24, 0.22), 0 0 0 1px rgba(28, 27, 24, 0.08); transform-origin: center center; }
+@media (max-width: 600px) { .viewer-bar .viewer-title { display: none; } }
+</style>
+</head>
+<body>
+<div class="viewer-bar">
+<div class="viewer-title"><strong>회의록 자동 작성</strong> <span>· PC 인터랙티브 시안 (1440×900)</span></div>
+<nav class="viewer-nav" aria-label="기기 선택"><a href="01_PC.html" aria-current="page">PC</a><a href="02_Tablet.html">태블릿</a><a href="03_Mobile.html">모바일</a></nav>
+<div class="viewer-actions"><button type="button" onclick="location.reload()">처음부터 다시</button></div>
+</div>
+<div class="viewer-stage" id="stage"><div id="frame"><div id="app"></div></div></div>
+<template id="dc-template">
+<div style="width: {{L.w}}px; height: {{L.h}}px; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #F4F2EC; color: #1C1B18; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 15px; line-height: 1.6; word-break: keep-all">
+
+<div style="flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px 16px; background: #1C1B18; color: #F4F2EC; font-size: 12px; line-height: 1.4">
+<span style="flex: none; padding: 1px 8px; border: 1px solid #A39C8F; border-radius: 999px; font-weight: 600">시안</span>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><span>실제 업로드 · AI 처리 · 메일 발송은 일어나지 않습니다. 화면에 나오는 회의록은 예시입니다.</span></sc-if>
+<sc-if value="{{isMob}}" hint-placeholder-val="{{ false }}"><span>실제 처리 · 발송 없음 · 회의록은 예시</span></sc-if>
+</div>
+
+<header style="flex: none; box-sizing: border-box; height: {{L.headH}}px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 {{L.padX}}px; background: #FFFFFF; border-bottom: 1px solid #DDD8CE">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 9px; background: #1C1B18; color: #F4F2EC; display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"></path><path d="M9.5 9v2M12 7.5v5M14.5 8.5v3M9.5 16h5"></path></svg></span>
+<span style="font-size: {{L.brand}}px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap">회의록 자동 작성</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<sc-if value="{{badgeA}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: #E8EDF8; color: #1E3A7E; font-size: 13px; font-weight: 600; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 14.5l2 2 4-4"></path></svg>검토 후 보내기</span></sc-if>
+<sc-if value="{{badgeB}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: #FBEDE3; color: #8F3C10; font-size: 13px; font-weight: 600; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg>바로 보내기</span></sc-if>
+<sc-if value="{{homeBtnText}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{askLeave}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M3.5 11L12 4l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg>처음으로</button></sc-if>
+<sc-if value="{{homeBtnIcon}}" hint-placeholder-val="{{ false }}"><button type="button" aria-label="처음으로" onClick="{{askLeave}}" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M3.5 11L12 4l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg></button></sc-if>
+</div>
+</header>
+
+<main style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden">
+
+<sc-if value="{{scr.home}}" hint-placeholder-val="{{ true }}">
+<div style="box-sizing: border-box; max-width: 1120px; margin: 0 auto; padding: {{L.topPad}}px {{L.padX}}px {{L.botPad}}px; display: flex; flex-direction: column; gap: {{L.homeGap}}px">
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 780px">
+<h1 style="margin: 0; font-size: {{L.h1}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance">회의 녹음을 올리면, 녹음에 근거한 회의록을 만들어 팀원에게 보냅니다</h1>
+<p style="margin: 0; font-size: {{L.lead}}px; color: #5E5A52; text-wrap: pretty">먼저 보내는 방식을 고르세요. 어느 방식이든 만들어진 회의록을 화면에서 보고 .md 파일로 내려받을 수 있습니다.</p>
+</div>
+<div style="display: grid; grid-template-columns: {{L.cols2}}; gap: 20px">
+<button type="button" onClick="{{chooseA}}" style="box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; gap: 20px; padding: {{L.cardPad}}; text-align: left; font: inherit; color: #1C1B18; background: #FFFFFF; border: 1.5px solid #B9C7E6; border-radius: 18px; cursor: pointer">
+<span style="display: flex; align-items: center; gap: 14px">
+<span style="flex: none; width: 48px; height: 48px; border-radius: 14px; background: #E8EDF8; color: #26489A; display: inline-flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 14.5l2 2 4-4"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; font-weight: 600; color: #26489A">방식 A</span>
+<span style="font-size: 24px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">검토 후 보내기</span>
+</span>
+</span>
+<span style="color: #3D3A34; text-wrap: pretty">AI가 만든 회의록을 화면에서 확인하고, 필요하면 고친 뒤 직접 메일로 보냅니다.</span>
+<span style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 12px; background: #F3F5FB; font-size: 14px">
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #26489A; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">1</span>녹음 올리기 · 받는 주소 입력</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #26489A; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">2</span>화면에서 회의록 확인 · 고치기</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #26489A; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">3</span>메일 보내기 · .md 내려받기</span>
+</span>
+<span style="display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 12px; background: #26489A; color: #FFFFFF; font-weight: 600">검토 후 보내기로 시작<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+</button>
+<button type="button" onClick="{{chooseB}}" style="box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; gap: 20px; padding: {{L.cardPad}}; text-align: left; font: inherit; color: #1C1B18; background: #FFFFFF; border: 1.5px solid #EDC3A6; border-radius: 18px; cursor: pointer">
+<span style="display: flex; align-items: center; gap: 14px">
+<span style="flex: none; width: 48px; height: 48px; border-radius: 14px; background: #FBEDE3; color: #B84E17; display: inline-flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; font-weight: 600; color: #B84E17">방식 B</span>
+<span style="font-size: 24px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">바로 보내기</span>
+</span>
+</span>
+<span style="color: #3D3A34; text-wrap: pretty">회의록이 만들어지면 사람의 검토 없이 곧바로 메일을 보냅니다. 보낸 결과는 화면에서 볼 수 있습니다.</span>
+<span style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 12px; background: #FDF4EE; font-size: 14px">
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #B84E17; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">1</span>녹음 올리기 · 받는 주소 입력</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #B84E17; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">2</span>올리기 전에 받는 주소 확인</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #B84E17; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">3</span>자동 발송 · 결과 보기 · .md 내려받기</span>
+</span>
+<span style="display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #8F3C10"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5"></path><path d="M12 16.5h.01"></path></svg><span>사람이 확인하지 않고 보내기 때문에, 올리기 전에 받는 주소를 한 번 더 보여 드립니다.</span></span>
+<span style="display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 12px; background: #B84E17; color: #FFFFFF; font-weight: 600">바로 보내기로 시작<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px; padding-top: 28px; border-top: 1px solid #DDD8CE">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">회의록은 이렇게 만듭니다</h2>
+<div style="display: grid; grid-template-columns: {{L.cols3}}; gap: 18px">
+<div style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #FFFFFF; border: 1px solid #DDD8CE; display: inline-flex; align-items: center; justify-content: center; color: #3D3A34"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.5h.01"></path></svg></span><p style="margin: 0; font-size: 14px; color: #3D3A34">녹음에서 확인되지 않는 내용은 지어내지 않고 <span style="display: inline-flex; padding: 0 6px; border: 1px dashed #A39C8F; border-radius: 6px; background: #FAF9F6; color: #5E5A52; font-size: 13px">미정</span>으로 둡니다.</p></div>
+<div style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #FFFFFF; border: 1px solid #DDD8CE; display: inline-flex; align-items: center; justify-content: center; color: #3D3A34"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span><p style="margin: 0; font-size: 14px; color: #3D3A34">결정사항과 할 일에는 녹음 속 위치 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 1px 6px; border-radius: 6px; background: #EFECE5; color: #3D3A34; white-space: nowrap">[12:34]</code>를 붙여 원래 발언을 찾을 수 있게 합니다.</p></div>
+<div style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #FFFFFF; border: 1px solid #DDD8CE; display: inline-flex; align-items: center; justify-content: center; color: #3D3A34"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 7h16"></path><path d="M9.5 7V4.5h5V7"></path><path d="M6.5 7l1 12.5h9l1-12.5"></path></svg></span><p style="margin: 0; font-size: 14px; color: #3D3A34">녹음 파일은 처리가 끝나면 삭제하고, 회의록도 서비스에 쌓아 두지 않습니다.</p></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #5E5A52">지원 형식: mp3 · m4a · wav</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.form}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; max-width: 1180px; margin: 0 auto; padding: {{L.topPad}}px {{L.padX}}px {{L.botPad}}px; display: grid; grid-template-columns: {{L.formCols}}; gap: 32px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">회의 녹음 올리기</h1>
+<p style="margin: 0; color: #5E5A52">녹음 파일과 받는 메일 주소는 꼭 입력해야 합니다. 회의 정보는 비워 두어도 됩니다.</p>
+</div>
+<div role="group" aria-label="보내는 방식" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; background: #E9E6DE; border-radius: 14px">
+<button type="button" aria-pressed="{{isA}}" onClick="{{setModeA}}" style="{{tabA}}"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 14.5l2 2 4-4"></path></svg><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 15px; font-weight: 700">검토 후 보내기</span><sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px">확인하고 고친 뒤 직접 보냅니다</span></sc-if></span></button>
+<button type="button" aria-pressed="{{isB}}" onClick="{{setModeB}}" style="{{tabB}}"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 15px; font-weight: 700">바로 보내기</span><sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px">검토 없이 곧바로 보냅니다</span></sc-if></span></button>
+</div>
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; border-radius: 12px; background: #E8EDF8; color: #1E3A7E; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 14.5l2 2 4-4"></path></svg><span><strong>검토 후 보내기</strong> · 회의록이 만들어지면 확인 화면이 열립니다. 내용을 확인하고 필요하면 고친 뒤 직접 보냅니다.</span></p>
+</sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; border-radius: 12px; background: #FBEDE3; border: 1px solid #EDC3A6; color: #8F3C10; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg><span><strong>바로 보내기</strong> · 회의록이 만들어지면 사람의 검토 없이 곧바로 메일이 나갑니다. 올리기 전에 받는 주소를 한 번 더 보여 드립니다.</span></p>
+</sc-if>
+
+<section aria-labelledby="sec-file" style="box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: {{L.secPad}}; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #1C1B18; color: #FFFFFF; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">1</span>
+<h2 id="sec-file" style="margin: 0; font-size: 18px; font-weight: 700">녹음 파일</h2>
+<span style="padding: 1px 8px; border-radius: 6px; background: #1C1B18; color: #FFFFFF; font-size: 12px; font-weight: 600">필수</span>
+</div>
+<sc-if value="{{noFile}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openPicker}}" style="box-sizing: border-box; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 168px; padding: 24px; font: inherit; color: #1C1B18; text-align: center; background: #FAF9F6; border: 1.5px dashed {{dropBorder}}; border-radius: 14px; cursor: pointer">
+<span style="width: 52px; height: 52px; border-radius: 50%; background: #FFFFFF; border: 1px solid #DDD8CE; display: inline-flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 15V4"></path><path d="M7.5 8.5L12 4l4.5 4.5"></path><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path></svg></span>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><span style="font-weight: 600">녹음 파일을 여기로 끌어다 놓거나 눌러서 고르세요</span></sc-if>
+<sc-if value="{{isMob}}" hint-placeholder-val="{{ false }}"><span style="font-weight: 600">눌러서 녹음 파일 고르기</span></sc-if>
+<span style="font-size: 13px; color: #5E5A52">mp3 · m4a · wav</span>
+</button>
+</sc-if>
+<sc-if value="{{hasFile}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 14px; border: 1px solid {{fileBorder}}; background: {{fileBg}}">
+<span style="flex: none; width: 44px; height: 44px; border-radius: 10px; background: #FFFFFF; border: 1px solid #DDD8CE; display: inline-flex; align-items: center; justify-content: center; color: {{fileIconColor}}"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 17v-3M12 17v-5M15 17v-2"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.45">
+<span style="font-weight: 600; overflow-wrap: anywhere">{{fileLabel}}</span>
+<span style="font-size: 13px; color: {{fileMetaColor}}">{{fileMeta}}</span>
+</span>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{openPicker}}" style="flex: none; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">다른 파일</button></sc-if>
+<button type="button" aria-label="고른 파일 빼기" onClick="{{removeFile}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-if>
+<sc-if value="{{fileErrShow}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #B3261E"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5"></path><path d="M12 16.5h.01"></path></svg><span>{{fileErrMsg}}</span></p>
+</sc-if>
+</section>
+
+<section aria-labelledby="sec-info" style="box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; padding: {{L.secPad}}; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #1C1B18; color: #FFFFFF; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">2</span>
+<h2 id="sec-info" style="margin: 0; font-size: 18px; font-weight: 700">회의 정보</h2>
+<span style="padding: 0 8px; border-radius: 6px; border: 1px solid #A39C8F; color: #5E5A52; font-size: 12px; font-weight: 600">선택</span>
+</div>
+<div style="display: grid; grid-template-columns: {{L.cols2}}; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<label for="in-title" style="font-size: 14px; font-weight: 600">제목</label>
+<input id="in-title" type="text" value="{{title}}" onChange="{{onTitle}}" placeholder="예: 신규 기능 출시 일정 회의" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">비우면 AI가 녹음 내용을 바탕으로 짓습니다.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<label for="in-date" style="font-size: 14px; font-weight: 600">일시</label>
+<input id="in-date" type="datetime-local" value="{{date}}" onChange="{{onDate}}" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">비우면 녹음 파일에 담긴 시각을 씁니다. 그 시각도 없으면 '미정'으로 둡니다.</p>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="in-att" style="font-size: 14px; font-weight: 600">참석자 이름</label>
+<sc-if value="{{attHas}}" hint-placeholder-val="{{ false }}">
+<ul aria-label="입력한 참석자" style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{atts}}" as="a" hint-placeholder-count="2"><li style="display: inline-flex; align-items: center; min-height: 44px; padding-left: 14px; border-radius: 22px; background: #F1EFE9; border: 1px solid #DDD8CE; font-size: 14px"><span>{{a.name}}</span><button type="button" aria-label="{{a.removeLabel}}" onClick="{{a.remove}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 22px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></li></sc-for>
+</ul>
+</sc-if>
+<div style="display: flex; gap: 8px">
+<input id="in-att" type="text" value="{{attDraft}}" onChange="{{onAttDraft}}" onKeyDown="{{onAttKey}}" placeholder="이름을 쓰고 Enter" style="box-sizing: border-box; flex: 1 1 auto; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<button type="button" onClick="{{addAtt}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-height: 48px; padding: 0 16px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">추가</button>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">녹음 속 호칭과 연결합니다. 확실하지 않은 사람은 '화자1, 화자2'로 남습니다.</p>
+</div>
+</section>
+
+<section aria-labelledby="sec-rcp" style="box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: {{L.secPad}}; background: #FFFFFF; border: {{rcpBorder}}; border-radius: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #1C1B18; color: #FFFFFF; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">3</span>
+<h2 id="sec-rcp" style="margin: 0; font-size: 18px; font-weight: 700">받는 메일 주소</h2>
+<span style="padding: 1px 8px; border-radius: 6px; background: #1C1B18; color: #FFFFFF; font-size: 12px; font-weight: 600">필수</span>
+</div>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: #FBEDE3; color: #8F3C10; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg><span>바로 보내기에서는 회의록이 만들어지면 이 주소로 검토 없이 곧바로 보냅니다.</span></p>
+</sc-if>
+<sc-if value="{{rcpHas}}" hint-placeholder-val="{{ false }}">
+<ul aria-label="받는 사람" style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{rcps}}" as="r" hint-placeholder-count="2"><li style="display: inline-flex; align-items: center; min-width: 0; min-height: 44px; padding-left: 14px; border-radius: 22px; background: #F1EFE9; border: 1px solid #DDD8CE; font-size: 14px"><span style="overflow-wrap: anywhere">{{r.email}}</span><button type="button" aria-label="{{r.removeLabel}}" onClick="{{r.remove}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 22px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></li></sc-for>
+</ul>
+</sc-if>
+<label for="in-rcp" style="font-size: 14px; font-weight: 600">받는 사람 추가</label>
+<div style="display: flex; gap: 8px">
+<input id="in-rcp" type="email" value="{{rcpDraft}}" onChange="{{onRcpDraft}}" onKeyDown="{{onRcpKey}}" placeholder="name@company.com" aria-invalid="{{rcpInvalid}}" style="box-sizing: border-box; flex: 1 1 auto; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid {{rcpInputBorder}}; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<button type="button" onClick="{{addRcp}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-height: 48px; padding: 0 16px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">추가</button>
+</div>
+<sc-if value="{{rcpErrShow}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #B3261E"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5"></path><path d="M12 16.5h.01"></path></svg><span>{{rcpErrMsg}}</span></p>
+</sc-if>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">여러 명에게 보낼 수 있습니다. 주소를 쓰고 Enter나 쉼표를 누르면 추가됩니다.</p>
+</section>
+</div>
+
+<sc-if value="{{isPC}}" hint-placeholder-val="{{ true }}">
+<aside aria-label="보내기 전 확인" style="position: sticky; top: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; padding: 24px; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">보내기 전 확인</h2>
+<dl style="margin: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<dt style="font-size: 13px; color: #5E5A52">보내는 방식</dt>
+<dd style="margin: 0">
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: #E8EDF8; color: #1E3A7E; font-size: 13px; font-weight: 600">검토 후 보내기</span></sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: #FBEDE3; color: #8F3C10; font-size: 13px; font-weight: 600">바로 보내기 · 검토 없이 발송</span></sc-if>
+</dd>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<dt style="font-size: 13px; color: #5E5A52">녹음 파일</dt>
+<dd style="margin: 0; font-weight: 600; overflow-wrap: anywhere">{{fileSummary}}</dd>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<dt style="font-size: 13px; color: #5E5A52">받는 사람 {{rcpCount}}명</dt>
+<dd style="margin: 0">
+<sc-if value="{{rcpHas}}" hint-placeholder-val="{{ false }}"><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px"><sc-for list="{{rcps}}" as="r" hint-placeholder-count="2"><li style="font-size: 14px; overflow-wrap: anywhere">{{r.email}}</li></sc-for></ul></sc-if>
+<sc-if value="{{rcpNone}}" hint-placeholder-val="{{ true }}"><span style="font-size: 14px; color: #5E5A52">아직 없습니다</span></sc-if>
+</dd>
+</div>
+</dl>
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{submit}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px; border: 1px solid #26489A; border-radius: 12px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">회의록 만들기</button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">회의록이 만들어지면 확인 화면이 열립니다. 메일은 확인한 뒤에 보냅니다.</p>
+</sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{submit}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px; border: 1px solid #B84E17; border-radius: 12px; background: #B84E17; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">올리고 바로 보내기</button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">누르면 받는 주소를 한 번 더 보여 드립니다. 확인해야 업로드가 시작됩니다.</p>
+</sc-if>
+</aside>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.proc}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; max-width: 720px; margin: 0 auto; padding: {{L.topPad}}px {{L.padX}}px {{L.botPad}}px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}"><h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">회의록을 만들고 있습니다</h1></sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}"><h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">회의록을 만든 뒤 바로 보냅니다</h1></sc-if>
+<p style="margin: 0; display: flex; align-items: center; gap: 8px; color: #5E5A52; overflow-wrap: anywhere"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 17v-3M12 17v-5M15 17v-2"></path></svg><span>{{fileLabel}}</span></p>
+</div>
+<ol aria-label="진행 단계" style="margin: 0; padding: 6px 0; list-style: none; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<li style="display: flex; gap: 14px; align-items: flex-start; padding: 16px 22px">
+<span style="flex: none; color: #2F6B43; margin-top: 1px"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 9.8"></path></svg></span>
+<span style="flex: 1; min-width: 0; font-weight: 600">녹음 파일 올리기</span>
+<span style="flex: none; padding: 2px 10px; border-radius: 999px; background: #E6F1EA; color: #2F6B43; font-size: 12px; font-weight: 600; white-space: nowrap">완료</span>
+</li>
+<li style="display: flex; gap: 14px; align-items: flex-start; padding: 16px 22px; border-top: 1px solid #EEEAE2; background: {{procCurBg}}">
+<span style="flex: none; color: {{modeColor}}; margin-top: 1px"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9" style="opacity: 0.25"></circle><path d="M12 3a9 9 0 0 1 9 9"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600">스크립트 만들기</span><span style="font-size: 13px; color: #5E5A52">음성 인식 · 목소리로 말한 사람 나누기 · 발언마다 타임스탬프</span></span>
+<span style="{{curTag}}">진행 중</span>
+</li>
+<li style="display: flex; gap: 14px; align-items: flex-start; padding: 16px 22px; border-top: 1px solid #EEEAE2">
+<span style="flex: none; color: #A39C8F; margin-top: 1px"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="8"></circle></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600">회의록 만들기</span><span style="font-size: 13px; color: #5E5A52">요약 · 결정사항 · 할 일 정리, 녹음에서 확인되지 않는 내용은 '미정'</span></span>
+<span style="flex: none; padding: 2px 10px; border-radius: 999px; background: #F1EFE9; color: #5E5A52; font-size: 12px; font-weight: 600; white-space: nowrap">대기</span>
+</li>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<li style="display: flex; gap: 14px; align-items: flex-start; padding: 16px 22px; border-top: 1px solid #EEEAE2">
+<span style="flex: none; color: #A39C8F; margin-top: 1px"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="8"></circle></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600">메일 보내기</span><span style="font-size: 13px; color: #5E5A52">검토 없이 받는 사람 {{rcpCount}}명에게 · 본문에 요약·결정사항·할 일, .md 파일 첨부</span></span>
+<span style="flex: none; padding: 2px 10px; border-radius: 999px; background: #F1EFE9; color: #5E5A52; font-size: 12px; font-weight: 600; white-space: nowrap">대기</span>
+</li>
+</sc-if>
+</ol>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border-radius: 14px; background: #FBEDE3; border: 1px solid #EDC3A6">
+<p style="margin: 0; font-weight: 700; color: #8F3C10">회의록이 만들어지면 이 주소로 검토 없이 보냅니다</p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{rcps}}" as="r" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 10px; font-size: 15px; overflow-wrap: anywhere"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; color: #B84E17; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg><span style="min-width: 0">{{r.email}}</span></li></sc-for>
+</ul>
+</div>
+</sc-if>
+<p style="margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #5E5A52"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.5h.01"></path></svg><span>녹음 파일은 처리가 끝나면 서비스에서 삭제됩니다.</span></p>
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 14px; color: #5E5A52">회의록이 만들어지면 확인 화면이 열립니다. 메일은 아직 보내지 않습니다.</p></sc-if>
+<button type="button" onClick="{{procNext}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px; border: 1.5px dashed #6F6A60; border-radius: 12px; background: transparent; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">
+<span style="padding: 0 6px; border-radius: 4px; background: #1C1B18; color: #FFFFFF; font-size: 11px; line-height: 1.6">시안</span>
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}"><span>회의록 확인 화면으로 넘어가기</span></sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}"><span>발송 결과 화면으로 넘어가기</span></sc-if>
+<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+</button>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.doc}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; max-width: 1280px; margin: 0 auto; padding: {{L.topPad}}px {{L.padX}}px {{L.botPad}}px; display: grid; grid-template-columns: {{L.docCols}}; gap: 32px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0">
+
+<sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">회의록을 확인하고, 필요하면 고친 뒤 보내세요</h1>
+<p style="margin: 0; color: #5E5A52; text-wrap: pretty">제목부터 할 일까지 고칠 수 있습니다. 전체 스크립트는 녹음 근거로 남겨 두기 때문에 고칠 수 없습니다. 직접 고친 내용은 검토자 책임으로 봅니다.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.sentA}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 14px; align-items: flex-start; padding: 22px 24px; border-radius: 16px; background: #E6F1EA; border: 1px solid #BCD9C6">
+<span style="flex: none; color: #2F6B43"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 9.8"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+<h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">메일을 보냈습니다</h1>
+<span style="display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; background: #1C1B18; color: #F4F2EC; font-size: 12px; font-weight: 600; white-space: nowrap">시안 · 실제로 보내지 않음</span>
+</div>
+<p style="margin: 0; color: #2A4A33">검토한 회의록을 받는 사람 {{rcpCount}}명에게 보냈습니다. 화면에서 고친 내용이 본문과 첨부 파일에 그대로 들어갔습니다.</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.resultB}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 14px; align-items: flex-start; padding: 22px 24px; border-radius: 16px; background: #FBEDE3; border: 1px solid #EDC3A6">
+<span style="flex: none; color: #B84E17"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M21 3L10.5 13.5"></path><path d="M21 3l-6.5 18-4-7.5L3 9.5z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+<h1 style="margin: 0; font-size: {{L.h2}}px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em">검토 없이 바로 보냈습니다</h1>
+<span style="display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; background: #1C1B18; color: #F4F2EC; font-size: 12px; font-weight: 600; white-space: nowrap">시안 · 실제로 보내지 않음</span>
+</div>
+<p style="margin: 0; color: #6E2F0C">회의록이 만들어지자마자 받는 사람 {{rcpCount}}명에게 보냈습니다. 보낸 내용은 아래에서 확인하고 .md 파일로 내려받을 수 있습니다.</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{notPC}}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 14px">
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg><sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}"><span>보낼 곳</span></sc-if><sc-if value="{{scr.done}}" hint-placeholder-val="{{ false }}"><span>보낸 곳</span></sc-if><span style="font-weight: 500; color: #5E5A52">받는 사람 {{rcpCount}}명</span></div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{rcps}}" as="r" hint-placeholder-count="3"><li style="padding: 4px 12px; border-radius: 999px; background: #F1EFE9; font-size: 14px; overflow-wrap: anywhere">{{r.email}}</li></sc-for>
+</ul>
+<dl style="margin: 0; display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 6px 10px; font-size: 14px">
+<dt style="color: #5E5A52">메일 제목</dt><dd style="margin: 0; overflow-wrap: anywhere">{{mailSubject}}</dd>
+<dt style="color: #5E5A52">첨부</dt><dd style="margin: 0"><code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">{{fileName}}</code></dd>
+</dl>
+<sc-if value="{{scr.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">회의록은 서비스에 보관되지 않습니다. 이 화면을 나가면 다시 볼 수 없으니, 필요하면 지금 내려받으세요.</p></sc-if>
+</div>
+</sc-if>
+
+<article aria-label="회의록" style="box-sizing: border-box; display: flex; flex-direction: column; gap: 36px; min-width: 0; padding: {{L.docPad}}; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 18px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #5E5A52; overflow-wrap: anywhere"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>{{fileName}}</span>
+<span style="display: inline-flex; align-items: center; padding: 2px 10px; border: 1px dashed #8A857A; border-radius: 999px; font-size: 12px; font-weight: 600; color: #5E5A52; white-space: nowrap">예시 회의록</span>
+</div>
+
+<sc-if value="{{V.meta}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<h2 style="margin: 0; font-size: {{L.docTitle}}px; line-height: 1.35; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 10px; min-width: 0"><span aria-hidden="true" style="flex: none; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; color: #A39C8F">#</span><span style="min-width: 0; overflow-wrap: anywhere">{{mv.title}}</span></h2>
+<sc-if value="{{canEdit}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{editMeta}}" style="display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>고치기</button></sc-if>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 12px">
+<dt style="font-weight: 600">일시</dt><dd style="margin: 0"><span style="{{mv.dateStyle}}">{{mv.date}}</span></dd>
+<dt style="font-weight: 600">참석자</dt><dd style="margin: 0"><span style="{{mv.attStyle}}">{{mv.attendees}}</span></dd>
+</dl>
+</div>
+</sc-if>
+<sc-if value="{{E.meta}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; border: 1.5px solid #26489A; background: #F6F8FD">
+<p style="margin: 0; font-size: 13px; font-weight: 700; color: #1E3A7E">제목 · 일시 · 참석자 고치는 중</p>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="ed-title" style="font-size: 14px; font-weight: 600">제목</label>
+<input id="ed-title" type="text" value="{{dv.title}}" onChange="{{dv.onTitle}}" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="ed-date" style="font-size: 14px; font-weight: 600">일시</label>
+<input id="ed-date" type="text" value="{{dv.date}}" onChange="{{dv.onDate}}" placeholder="미정" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">예: 2026-09-22 14:00 · 비우면 '미정' · 파일 이름 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{dv.fileName}}</code></p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="ed-att" style="font-size: 14px; font-weight: 600">참석자</label>
+<input id="ed-att" type="text" value="{{dv.attendees}}" onChange="{{dv.onAtt}}" placeholder="미정" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">쉼표로 구분합니다. 확실하지 않은 사람은 '화자N'으로 둡니다.</p>
+</div>
+<div style="display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" onClick="{{cancelEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">취소</button>
+<button type="button" onClick="{{applyEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: 1px solid #26489A; border-radius: 10px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">적용</button>
+</div>
+</div>
+</sc-if>
+
+<section aria-labelledby="h-sum" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding-bottom: 8px; border-bottom: 1px solid #EEEAE2">
+<h2 id="h-sum" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700; display: flex; align-items: baseline; gap: 8px"><span aria-hidden="true" style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: #A39C8F">##</span>요약</h2>
+<sc-if value="{{canEdit}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{editSummary}}" style="display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>고치기</button></sc-if>
+</div>
+<sc-if value="{{V.summary}}" hint-placeholder-val="{{ true }}">
+<ul style="margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{mv.summary}}" as="s" hint-placeholder-count="2"><li>{{s.text}}</li></sc-for>
+</ul>
+</sc-if>
+<sc-if value="{{E.summary}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 14px; border: 1.5px solid #26489A; background: #F6F8FD">
+<p style="margin: 0; font-size: 13px; font-weight: 700; color: #1E3A7E">요약 고치는 중</p>
+<sc-for list="{{dv.summary}}" as="s" hint-placeholder-count="2">
+<div style="display: flex; gap: 8px; align-items: center">
+<input type="text" aria-label="{{s.label}}" value="{{s.text}}" onChange="{{s.onText}}" style="box-sizing: border-box; flex: 1 1 auto; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<button type="button" aria-label="{{s.delLabel}}" onClick="{{s.onDel}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 7h16"></path><path d="M9.5 7V4.5h5V7"></path><path d="M6.5 7l1 12.5h9l1-12.5"></path></svg></button>
+</div>
+</sc-for>
+<button type="button" onClick="{{addSummary}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px dashed #8A857A; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M12 5v14M5 12h14"></path></svg>줄 추가</button>
+<div style="display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" onClick="{{cancelEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">취소</button>
+<button type="button" onClick="{{applyEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: 1px solid #26489A; border-radius: 10px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">적용</button>
+</div>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="h-dec" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding-bottom: 8px; border-bottom: 1px solid #EEEAE2">
+<h2 id="h-dec" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700; display: flex; align-items: baseline; gap: 8px"><span aria-hidden="true" style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: #A39C8F">##</span>결정사항</h2>
+<sc-if value="{{canEdit}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{editDecisions}}" style="display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>고치기</button></sc-if>
+</div>
+<sc-if value="{{mv.decList}}" hint-placeholder-val="{{ true }}">
+<ol style="margin: 0; padding-left: 24px; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{mv.decs}}" as="d" hint-placeholder-count="2"><li><span>{{d.text}}</span><sc-if value="{{d.hasTs}}" hint-placeholder-val="{{ true }}"><code style="margin-left: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 1px 6px; border-radius: 6px; background: #EFECE5; color: #3D3A34; white-space: nowrap">[{{d.ts}}]</code></sc-if></li></sc-for>
+</ol>
+</sc-if>
+<sc-if value="{{mv.decNone}}" hint-placeholder-val="{{ false }}"><p style="margin: 0"><span style="display: inline-flex; align-items: center; padding: 0 8px; border: 1px dashed #A39C8F; border-radius: 6px; background: #FAF9F6; color: #5E5A52; font-size: 14px">없음</span></p></sc-if>
+<sc-if value="{{E.decisions}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 14px; border: 1.5px solid #26489A; background: #F6F8FD">
+<p style="margin: 0; font-size: 13px; font-weight: 700; color: #1E3A7E">결정사항 고치는 중</p>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><div style="display: grid; grid-template-columns: {{L.decEditCols}}; gap: 8px; font-size: 13px; font-weight: 600; color: #5E5A52"><span>결정사항</span><span>근거</span><span></span></div></sc-if>
+<sc-for list="{{dv.decisions}}" as="d" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: {{L.decEditCols}}; gap: 8px; align-items: center; {{L.editRowCard}}">
+<input type="text" aria-label="{{d.label}}" value="{{d.text}}" onChange="{{d.onText}}" placeholder="결정사항" style="box-sizing: border-box; width: 100%; grid-column: {{L.spanFull}}; height: 48px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<input type="text" aria-label="{{d.tsLabel}}" value="{{d.ts}}" onChange="{{d.onTs}}" placeholder="근거 mm:ss" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 12px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+<button type="button" aria-label="{{d.delLabel}}" onClick="{{d.onDel}}" style="justify-self: end; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 7h16"></path><path d="M9.5 7V4.5h5V7"></path><path d="M6.5 7l1 12.5h9l1-12.5"></path></svg></button>
+</div>
+</sc-for>
+<button type="button" onClick="{{addDecision}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px dashed #8A857A; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M12 5v14M5 12h14"></path></svg>결정사항 추가</button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">근거는 녹음 속 위치입니다(예: 12:34). 모두 지우면 '없음'으로 표시됩니다.</p>
+<div style="display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" onClick="{{cancelEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">취소</button>
+<button type="button" onClick="{{applyEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: 1px solid #26489A; border-radius: 10px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">적용</button>
+</div>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="h-todo" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding-bottom: 8px; border-bottom: 1px solid #EEEAE2">
+<h2 id="h-todo" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700; display: flex; align-items: baseline; gap: 8px"><span aria-hidden="true" style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: #A39C8F">##</span>할 일</h2>
+<sc-if value="{{canEdit}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{editTodos}}" style="display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 44px; padding: 0 14px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>고치기</button></sc-if>
+</div>
+<sc-if value="{{mv.todoTable}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; border: 1px solid #E3DED4; border-radius: 12px; overflow: hidden">
+<div style="display: grid; grid-template-columns: {{L.todoCols}}; gap: 12px; padding: 10px 16px; background: #F4F2EC; font-size: 13px; font-weight: 600; color: #5E5A52"><span>할 일</span><span>담당자</span><span>기한</span><span>근거</span></div>
+<sc-for list="{{mv.todos}}" as="t" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: {{L.todoCols}}; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid #EEEAE2">
+<span style="min-width: 0">{{t.task}}</span>
+<span style="min-width: 0"><span style="{{t.ownerStyle}}">{{t.owner}}</span></span>
+<span style="min-width: 0"><span style="{{t.dueStyle}}">{{t.due}}</span></span>
+<span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 1px 6px; border-radius: 6px; background: #EFECE5; color: #3D3A34; white-space: nowrap">{{t.tsLabel}}</code></span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{mv.todoCards}}" hint-placeholder-val="{{ false }}">
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{mv.todos}}" as="t" hint-placeholder-count="3">
+<li style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid #E3DED4; border-radius: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px"><span style="font-weight: 600; min-width: 0">{{t.task}}</span><code style="flex: none; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 1px 6px; border-radius: 6px; background: #EFECE5; color: #3D3A34; white-space: nowrap">{{t.tsLabel}}</code></div>
+<dl style="margin: 0; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 4px 10px; font-size: 14px">
+<dt style="color: #5E5A52">담당자</dt><dd style="margin: 0"><span style="{{t.ownerStyle}}">{{t.owner}}</span></dd>
+<dt style="color: #5E5A52">기한</dt><dd style="margin: 0"><span style="{{t.dueStyle}}">{{t.due}}</span></dd>
+</dl>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+<sc-if value="{{mv.todoNone}}" hint-placeholder-val="{{ false }}"><p style="margin: 0"><span style="display: inline-flex; align-items: center; padding: 0 8px; border: 1px dashed #A39C8F; border-radius: 6px; background: #FAF9F6; color: #5E5A52; font-size: 14px">없음</span></p></sc-if>
+<sc-if value="{{E.todos}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 14px; border: 1.5px solid #26489A; background: #F6F8FD">
+<p style="margin: 0; font-size: 13px; font-weight: 700; color: #1E3A7E">할 일 고치는 중</p>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{ true }}"><div style="display: grid; grid-template-columns: {{L.todoEditCols}}; gap: 8px; font-size: 13px; font-weight: 600; color: #5E5A52"><span>할 일</span><span>담당자</span><span>기한</span><span>근거</span><span></span></div></sc-if>
+<sc-for list="{{dv.todos}}" as="t" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: {{L.todoEditCols}}; gap: 8px; align-items: center; {{L.editRowCard}}">
+<input type="text" aria-label="{{t.taskLabel}}" value="{{t.task}}" onChange="{{t.onTask}}" placeholder="할 일" style="box-sizing: border-box; width: 100%; grid-column: {{L.spanFull}}; height: 48px; padding: 0 12px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<input type="text" aria-label="{{t.ownerLabel}}" value="{{t.owner}}" onChange="{{t.onOwner}}" placeholder="담당자 미정" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 12px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<input type="text" aria-label="{{t.dueLabel}}" value="{{t.due}}" onChange="{{t.onDue}}" placeholder="기한 미정" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 12px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px">
+<input type="text" aria-label="{{t.tsLabel}}" value="{{t.ts}}" onChange="{{t.onTs}}" placeholder="근거 mm:ss" style="box-sizing: border-box; width: 100%; height: 48px; padding: 0 10px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+<button type="button" aria-label="{{t.delLabel}}" onClick="{{t.onDel}}" style="justify-self: end; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M4 7h16"></path><path d="M9.5 7V4.5h5V7"></path><path d="M6.5 7l1 12.5h9l1-12.5"></path></svg></button>
+</div>
+</sc-for>
+<button type="button" onClick="{{addTodo}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px dashed #8A857A; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M12 5v14M5 12h14"></path></svg>할 일 추가</button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">담당자나 기한을 비우면 '미정'으로 표시됩니다. 모두 지우면 '없음'으로 표시됩니다.</p>
+<div style="display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" onClick="{{cancelEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 10px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">취소</button>
+<button type="button" onClick="{{applyEdit}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: 1px solid #26489A; border-radius: 10px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">적용</button>
+</div>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="h-script" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding-bottom: 8px; border-bottom: 1px solid #EEEAE2">
+<h2 id="h-script" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700; display: flex; align-items: baseline; gap: 8px"><span aria-hidden="true" style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: #A39C8F">##</span>전체 스크립트</h2>
+<span style="display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 4px 10px; border-radius: 999px; background: #F1EFE9; color: #3D3A34; font-size: 13px; font-weight: 600; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>고칠 수 없음</span>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">녹음을 글로 옮긴 원본을 그대로 둡니다. 발언마다 [타임스탬프] 이름(또는 화자N): 내용 순서로 적습니다.</p>
+<div style="max-height: {{L.scriptH}}px; overflow-y: auto; padding: 6px 0; background: #FAF9F6; border: 1px solid #E3DED4; border-radius: 12px">
+<sc-for list="{{script}}" as="l" hint-placeholder-count="6">
+<sc-if value="{{l.line}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; padding: 7px 16px; font-size: 14px; line-height: 1.6">
+<code style="flex: none; width: 56px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7; color: #5E5A52">[{{l.ts}}]</code>
+<span style="flex: none; width: {{L.whoW}}; font-weight: 600">{{l.who}}</span>
+<span style="flex: 1 1 {{L.scriptBasis}}; min-width: 0">{{l.text}}</span>
+</p>
+</sc-if>
+<sc-if value="{{l.gap}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 2px 16px; font-size: 12px; color: #5E5A52">· · · 예시에서는 중간 발언을 생략했습니다</p>
+</sc-if>
+</sc-for>
+</div>
+</section>
+</article>
+</div>
+
+<sc-if value="{{isPC}}" hint-placeholder-val="{{ true }}">
+<aside aria-label="메일 정보" style="position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 22px; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg><sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}"><span>보낼 곳</span></sc-if><sc-if value="{{scr.done}}" hint-placeholder-val="{{ false }}"><span>보낸 곳</span></sc-if><span style="font-weight: 500; color: #5E5A52">{{rcpCount}}명</span></h2>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{rcps}}" as="r" hint-placeholder-count="3"><li style="padding: 8px 12px; border-radius: 8px; background: #F4F2EC; font-size: 14px; overflow-wrap: anywhere">{{r.email}}</li></sc-for>
+</ul>
+<sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">올릴 때 입력한 주소입니다.</p></sc-if>
+</div>
+<div style="box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 22px; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 16px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">메일 구성</h2>
+<dl style="margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<div style="display: flex; flex-direction: column; gap: 2px"><dt style="font-size: 13px; color: #5E5A52">제목</dt><dd style="margin: 0; overflow-wrap: anywhere">{{mailSubject}}</dd></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><dt style="font-size: 13px; color: #5E5A52">본문</dt><dd style="margin: 0">제목, 일시, 참석자, 요약, 결정사항, 할 일 · 전체 스크립트는 넣지 않습니다</dd></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><dt style="font-size: 13px; color: #5E5A52">첨부</dt><dd style="margin: 0"><code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">{{fileName}}</code></dd></div>
+</dl>
+</div>
+<sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openSend}}" disabled="{{editingAny}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px; border: 1px solid #26489A; border-radius: 12px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; opacity: {{sendOpacity}}; cursor: {{sendCursor}}"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg>메일 보내기</button>
+<sc-if value="{{editingAny}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">고치는 중인 항목을 먼저 적용하거나 취소하세요.</p></sc-if>
+<button type="button" onClick="{{download}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 4v11"></path><path d="M7.5 10.5L12 15l4.5-4.5"></path><path d="M5 20h14"></path></svg>.md 내려받기</button>
+</sc-if>
+<sc-if value="{{scr.done}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{download}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px; border: 1px solid #1C1B18; border-radius: 12px; background: #1C1B18; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 4v11"></path><path d="M7.5 10.5L12 15l4.5-4.5"></path><path d="M5 20h14"></path></svg>.md 내려받기</button>
+<button type="button" onClick="{{askLeave}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">새 회의록 만들기</button>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5A52">회의록은 서비스에 보관되지 않습니다. 이 화면을 나가면 다시 볼 수 없으니, 필요하면 지금 내려받으세요.</p>
+</sc-if>
+</aside>
+</sc-if>
+</div>
+</sc-if>
+
+</main>
+
+<sc-if value="{{barForm}}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 12px {{L.padX}}px 16px; background: #FFFFFF; border-top: 1px solid #DDD8CE">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35">
+<span style="font-size: 12px; color: #5E5A52">받는 사람</span>
+<span style="font-size: 15px; font-weight: 700">{{rcpSummary}}</span>
+</div>
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{submit}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: none; min-height: 52px; padding: 0 22px; border: 1px solid #26489A; border-radius: 12px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">회의록 만들기</button></sc-if>
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{submit}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: none; min-height: 52px; padding: 0 22px; border: 1px solid #B84E17; border-radius: 12px; background: #B84E17; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">올리고 바로 보내기</button></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{barDoc}}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px {{L.padX}}px 16px; background: #FFFFFF; border-top: 1px solid #DDD8CE">
+<sc-if value="{{barEditHint}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 13px; color: #5E5A52">고치는 중인 항목을 먼저 적용하거나 취소하세요.</p></sc-if>
+<div style="display: flex; gap: 10px; justify-content: flex-end">
+<sc-if value="{{scr.review}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{download}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: {{L.barBtnFlex}}; min-height: 52px; padding: 0 16px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 4v11"></path><path d="M7.5 10.5L12 15l4.5-4.5"></path><path d="M5 20h14"></path></svg>.md 내려받기</button>
+<button type="button" onClick="{{openSend}}" disabled="{{editingAny}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: {{L.barBtnFlex}}; min-height: 52px; padding: 0 20px; border: 1px solid #26489A; border-radius: 12px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; opacity: {{sendOpacity}}; cursor: {{sendCursor}}"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg>메일 보내기</button>
+</sc-if>
+<sc-if value="{{scr.done}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{askLeave}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: {{L.barBtnFlex}}; min-height: 52px; padding: 0 16px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">새 회의록</button>
+<button type="button" onClick="{{download}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: {{L.barBtnFlex}}; min-height: 52px; padding: 0 20px; border: 1px solid #1C1B18; border-radius: 12px; background: #1C1B18; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 4v11"></path><path d="M7.5 10.5L12 15l4.5-4.5"></path><path d="M5 20h14"></path></svg>.md 내려받기</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: {{L.toastBottom}}px; z-index: 15; transform: translateX(-50%); box-sizing: border-box; width: {{L.toastW}}; display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 18px; background: #1C1B18; color: #F4F2EC; border-radius: 14px; box-shadow: 0 12px 32px rgba(28, 27, 24, 0.3)">
+<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M12 4v11"></path><path d="M7.5 10.5L12 15l4.5-4.5"></path><path d="M5 20h14"></path></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.45">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; overflow-wrap: anywhere">{{fileName}} 내려받기</span>
+<span style="font-size: 12px; color: #CFC9BD">시안이라 실제 파일은 만들어지지 않습니다. 전체 스크립트까지 담긴 파일입니다.</span>
+</div>
+<button type="button" aria-label="알림 닫기" onClick="{{closeToast}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px; background: transparent; color: #F4F2EC; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-if>
+
+<sc-if value="{{mo.open}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; z-index: 20; box-sizing: border-box; display: flex; align-items: {{L.ovAlign}}; justify-content: center; padding: {{L.ovPad}}; background: rgba(28, 27, 24, 0.5)">
+<div role="dialog" aria-modal="true" aria-labelledby="dlg-title" style="box-sizing: border-box; width: {{L.sheetW}}; max-height: 88%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: {{L.sheetPad}}; background: #FFFFFF; border-radius: {{L.sheetR}}; box-shadow: 0 24px 60px rgba(28, 27, 24, 0.25)">
+
+<sc-if value="{{mo.picker}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; padding: 2px 10px; border: 1px dashed #8A857A; border-radius: 999px; font-size: 12px; font-weight: 600; color: #5E5A52">시안용 파일 선택 창</span>
+<h2 id="dlg-title" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700">녹음 파일 고르기</h2>
+</div>
+<button type="button" aria-label="닫기" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -8px -8px 0 0; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 0; font-size: 14px; color: #5E5A52">실제 서비스에서는 기기의 파일 선택 창이 열립니다. 시안에서는 아래 예시 파일 중 하나를 고르세요.</p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{pickFiles}}" as="f" hint-placeholder-count="4"><li><button type="button" onClick="{{f.pick}}" style="box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; font: inherit; text-align: left; color: #1C1B18; background: #FFFFFF; border: 1px solid #DDD8CE; border-radius: 12px; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 17v-3M12 17v-5M15 17v-2"></path></svg><span style="flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere">{{f.name}}</span><span style="{{f.tagStyle}}">{{f.tag}}</span></button></li></sc-for>
+</ul>
+<p style="margin: 0; font-size: 13px; color: #5E5A52">지원 형식은 mp3, m4a, wav입니다.</p>
+</sc-if>
+
+<sc-if value="{{mo.confirmB}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; background: #FBEDE3; color: #8F3C10; font-size: 13px; font-weight: 600">바로 보내기 · 검토 없이 발송</span>
+<h2 id="dlg-title" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700">올리기 전에 받는 주소를 확인하세요</h2>
+</div>
+<button type="button" aria-label="닫기" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -8px -8px 0 0; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 0; color: #3D3A34">회의록이 만들어지면 <strong>사람의 검토 없이</strong> 아래 주소로 곧바로 보냅니다. 주소가 맞는지 확인한 뒤 올리세요.</p>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #FBEDE3; border: 1.5px solid #EDC3A6">
+<p style="margin: 0; font-weight: 700; color: #8F3C10">받는 사람 {{rcpCount}}명</p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{rcps}}" as="r" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #FFFFFF; font-size: 15px; font-weight: 600; overflow-wrap: anywhere"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; color: #B84E17; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg><span style="min-width: 0">{{r.email}}</span></li></sc-for>
+</ul>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: {{L.dlCols}}; gap: 6px 12px; font-size: 14px">
+<dt style="color: #5E5A52">녹음 파일</dt><dd style="margin: 0; overflow-wrap: anywhere">{{fileLabel}}</dd>
+<dt style="color: #5E5A52">메일 구성</dt><dd style="margin: 0">본문에 요약 · 결정사항 · 할 일, 전체 회의록 .md 파일 첨부</dd>
+</dl>
+<div style="display: flex; flex-direction: {{L.actDir}}; justify-content: flex-end; gap: 10px">
+<button type="button" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">주소 고치기</button>
+<button type="button" onClick="{{confirmGo}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid #B84E17; border-radius: 12px; background: #B84E17; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">이 주소로 올리고 보내기</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #5E5A52; text-align: center">시안: 실제로 올리거나 보내지 않습니다.</p>
+</sc-if>
+
+<sc-if value="{{mo.send}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; background: #E8EDF8; color: #1E3A7E; font-size: 13px; font-weight: 600">검토 후 보내기</span>
+<h2 id="dlg-title" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700">이 내용으로 메일을 보낼까요?</h2>
+</div>
+<button type="button" aria-label="닫기" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -8px -8px 0 0; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: {{L.dlCols}}; gap: 12px 14px; font-size: 14px">
+<dt style="color: #5E5A52">받는 사람</dt>
+<dd style="margin: 0"><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{rcps}}" as="r" hint-placeholder-count="3"><li style="padding: 4px 12px; border-radius: 999px; background: #F1EFE9; overflow-wrap: anywhere">{{r.email}}</li></sc-for></ul></dd>
+<dt style="color: #5E5A52">메일 제목</dt><dd style="margin: 0; font-weight: 600; overflow-wrap: anywhere">{{mailSubject}}</dd>
+<dt style="color: #5E5A52">본문</dt><dd style="margin: 0">제목, 일시, 참석자, 요약, 결정사항, 할 일<br>전체 스크립트는 본문에 넣지 않습니다.</dd>
+<dt style="color: #5E5A52">첨부</dt><dd style="margin: 0"><code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">{{fileName}}</code><br>화면에서 내려받는 파일과 같습니다.</dd>
+</dl>
+<p style="margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: #E8EDF8; color: #1E3A7E; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.5h.01"></path></svg><span>화면에서 고친 내용이 메일 본문과 첨부 파일에 그대로 들어갑니다.</span></p>
+<div style="display: flex; flex-direction: {{L.actDir}}; justify-content: flex-end; gap: 10px">
+<button type="button" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">취소</button>
+<button type="button" onClick="{{doSend}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid #26489A; border-radius: 12px; background: #26489A; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg>보내기</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #5E5A52; text-align: center">시안: 실제로 보내지 않습니다.</p>
+</sc-if>
+
+<sc-if value="{{mo.leave}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<h2 id="dlg-title" style="margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700">처음 화면으로 갈까요?</h2>
+<button type="button" aria-label="닫기" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -8px -8px 0 0; padding: 0; border: none; border-radius: 10px; background: transparent; color: #3D3A34; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<sc-if value="{{lv.form}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; color: #3D3A34">고른 녹음 파일과 입력한 회의 정보, 받는 주소가 모두 지워집니다.</p></sc-if>
+<sc-if value="{{lv.review}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; color: #3D3A34">회의록은 서비스에 보관되지 않습니다. 메일을 보내거나 .md 파일로 내려받지 않고 나가면 이 회의록을 다시 볼 수 없습니다.</p></sc-if>
+<sc-if value="{{lv.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; color: #3D3A34">회의록은 서비스에 보관되지 않습니다. 나간 뒤에는 보낸 메일과 내려받은 파일로만 볼 수 있습니다.</p></sc-if>
+<div style="display: flex; flex-direction: {{L.actDir}}; justify-content: flex-end; gap: 10px">
+<button type="button" onClick="{{closeModal}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 1px solid #C9C3B6; border-radius: 12px; background: #FFFFFF; color: #1C1B18; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">머무르기</button>
+<button type="button" onClick="{{goHome}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid #1C1B18; border-radius: 12px; background: #1C1B18; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">처음으로</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</sc-if>
+
+</div>
+</template>
+<script>/* Preact 10.29.8 | MIT License | (c) Jason Miller | https://preactjs.com */
+!function(n){"function"==typeof define&&define.amd?define(n):n()}(function(){var n,t,e,i,r,o,f,u,c,a,s,h,l,p,y,d,v,_="http://www.w3.org/2000/svg",w="http://www.w3.org/1999/xhtml",m=null,g=void 0,b={},k=[],x=/acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i,C=Array.isArray;function M(n,t){for(var e in t)n[e]=t[e];return n}function S(n){n&&n.parentNode&&n.parentNode.removeChild(n)}function $(t,e,i){var r,o,f,u={};for(f in e)"key"==f?r=e[f]:"ref"==f?o=e[f]:u[f]=e[f];if(arguments.length>2&&(u.children=arguments.length>3?n.call(arguments,2):i),"function"==typeof t&&t.defaultProps!=m)for(f in t.defaultProps)u[f]===g&&(u[f]=t.defaultProps[f]);return A(t,u,r,o,m)}function A(n,i,r,o,f){var u={type:n,props:i,key:r,ref:o,__k:m,__:m,__b:0,__e:m,__c:m,constructor:g,__v:f==m?++e:f,__i:-1,__u:0};return f==m&&t.vnode!=m&&t.vnode(u),u}function I(n){return n.children}function P(n,t){this.props=n,this.context=t}function E(n,t){if(t==m)return n.__?E(n.__,n.__i+1):m;for(var e;t<n.__k.length;t++)if((e=n.__k[t])!=m&&e.__e!=m)return e.__e;return"function"==typeof n.type?E(n):m}function F(n){if(n.__P&&n.__d){var e=n.__v,i=e.__e,r=[],o=[],f=M({},e);f.__v=e.__v+1,t.vnode&&t.vnode(f),B(n.__P,f,e,n.__n,n.__P.namespaceURI,32&e.__u?[i]:m,r,i==m?E(e):i,!!(32&e.__u),o),f.__v=e.__v,f.__.__k[f.__i]=f,G(r,f,o),e.__e=e.__=null,f.__e!=i&&H(f)}}function H(n){if((n=n.__)!=m&&n.__c!=m)return n.__e=n.__c.base=m,n.__k.some(function(t){if(t!=m&&t.__e!=m)return n.__e=n.__c.base=t.__e}),H(n)}function L(n){(!n.__d&&(n.__d=!0)&&r.push(n)&&!T.__r++||o!=t.debounceRendering)&&((o=t.debounceRendering)||f)(T)}function T(){try{for(var n,t=1;r.length;)r.length>t&&r.sort(u),n=r.shift(),t=r.length,F(n)}finally{r.length=T.__r=0}}function j(n,t,e,i,r,o,f,u,c,a,s){var h,l,p,y,d,v,_=i&&i.__k||k,w=t.length;for(c=O(e,t,_,c,w),h=0;h<w;h++)(p=e.__k[h])!=m&&(l=-1!=p.__i&&_[p.__i]||b,p.__i=h,v=B(n,p,l,r,o,f,u,c,a,s),y=p.__e,p.ref&&l.ref!=p.ref&&(l.ref&&Q(l.ref,m,p),s.push(p.ref,p.__c||y,p)),d==m&&y!=m&&(d=y),4&p.__u?(c=V(p,c,n),l.__e&&(l.__e=m)):"function"==typeof p.type&&v!==g?c=v:y&&(c=y.nextSibling),p.__u&=-7);return e.__e=d,c}function O(n,t,e,i,r){var o,f,u,c,a,s=e.length,h=s,l=0;for(n.__k=new Array(r),o=0;o<r;o++)(f=t[o])!=m&&"boolean"!=typeof f&&"function"!=typeof f?("string"==typeof f||"number"==typeof f||"bigint"==typeof f||f.constructor==String?f=n.__k[o]=A(m,f,m,m,m):C(f)?f=n.__k[o]=A(I,{children:f},m,m,m):f.constructor===g&&f.__b>0?f=n.__k[o]=A(f.type,f.props,f.key,f.ref?f.ref:m,f.__v):n.__k[o]=f,c=o+l,f.__=n,f.__b=n.__b+1,a=f.__i=z(f,e,c,h),u=m,-1!=a&&(h--,(u=e[a])&&(u.__u|=2)),u==m||u.__v==m?(-1==a&&(r>s?l--:r<s&&l++),"function"!=typeof f.type&&(f.__u|=4)):a!=c&&(a==c-1?l--:a==c+1?l++:(a>c?l--:l++,f.__u|=4))):n.__k[o]=m;if(h)for(o=0;o<s;o++)(u=e[o])!=m&&0==(2&u.__u)&&(u.__e==i&&(i=E(u)),U(u,u));return i}function V(n,t,e){var i,r;if("function"==typeof n.type){for(i=n.__k,r=0;i&&r<i.length;r++)i[r]&&(i[r].__=n,t=V(i[r],t,e));return t}n.__e!=t&&(t&&n.type&&!t.parentNode&&(t=E(n)),t=e.insertBefore(n.__e,t||m));do{t=t&&t.nextSibling}while(t!=m&&8==t.nodeType);return t}function z(n,t,e,i){var r,o,f,u=n.key,c=n.type,a=t[e],s=a!=m&&0==(2&a.__u);if(a===m&&null==u||s&&u==a.key&&c==a.type)return e;if(i>(s?1:0))for(r=e-1,o=e+1;r>=0||o<t.length;)if((a=t[f=r>=0?r--:o++])!=m&&0==(2&a.__u)&&u==a.key&&c==a.type)return f;return-1}function N(n,t,e){"-"==t[0]?n.setProperty(t,e==m?"":e):n[t]=e==m?"":"number"!=typeof e||x.test(t)?e:e+"px"}function R(n,t,e,i,r){var o,f;n:if("style"==t)if("string"==typeof e)n.style.cssText=e;else{if("string"==typeof i&&(n.style.cssText=i=""),i)for(t in i)e&&t in e||N(n.style,t,"");if(e)for(t in e)i&&e[t]==i[t]||N(n.style,t,e[t])}else if("o"==t[0]&&"n"==t[1])o=t!=(t=t.replace(h,"$1")),f=t.toLowerCase(),t=f in n||"onFocusOut"==t||"onFocusIn"==t?f.slice(2):t.slice(2),n.l||(n.l={}),n.l[t+o]=e,e?i?e[s]=i[s]:(e[s]=l,n.addEventListener(t,o?y:p,o)):n.removeEventListener(t,o?y:p,o);else{if(r==_)t=t.replace(/xlink(H|:h)/,"h").replace(/sName$/,"s");else if("width"!=t&&"height"!=t&&"href"!=t&&"list"!=t&&"form"!=t&&"tabIndex"!=t&&"download"!=t&&"rowSpan"!=t&&"colSpan"!=t&&"role"!=t&&"popover"!=t&&t in n)try{n[t]=e==m?"":e;break n}catch(n){}"function"==typeof e||(e==m||!1===e&&"-"!=t[4]?n.removeAttribute(t):n.setAttribute(t,"popover"==t&&1==e?"":e))}}function q(n){return function(e){if(this.l){var i=this.l[e.type+n];if(e[a]==m)e[a]=l++;else if(e[a]<i[s])return;return i(t.event?t.event(e):e)}}}function B(n,e,i,r,o,f,u,c,a,s){var h,l,p,y,d,v,_,w,b,x,$,A,F,H,L,T,O=e.type;if(e.constructor!==g)return m;128&i.__u&&(a=!!(32&i.__u),f=[c=e.__e=i.__e]),(h=t.__b)&&h(e);n:if("function"==typeof O){l=u.length;try{if(b=e.props,x=O.prototype&&O.prototype.render,$=(h=O.contextType)&&r[h.__c],A=h?$?$.props.value:h.__:r,i.__c?w=(p=e.__c=i.__c).__=p.__E:(x?e.__c=p=new O(b,A):(e.__c=p=new P(b,A),p.constructor=O,p.render=W),$&&$.sub(p),p.state||(p.state={}),p.__n=r,y=p.__d=!0,p.__h=[],p._sb=[]),x&&p.__s==m&&(p.__s=p.state),x&&O.getDerivedStateFromProps!=m&&(p.__s==p.state&&(p.__s=M({},p.__s)),M(p.__s,O.getDerivedStateFromProps(b,p.__s))),d=p.props,v=p.state,p.__v=e,y)x&&O.getDerivedStateFromProps==m&&p.componentWillMount!=m&&p.componentWillMount(),x&&p.componentDidMount!=m&&p.__h.push(p.componentDidMount);else{if(x&&O.getDerivedStateFromProps==m&&b!==d&&p.componentWillReceiveProps!=m&&p.componentWillReceiveProps(b,A),e.__v==i.__v||!p.__e&&p.shouldComponentUpdate!=m&&!1===p.shouldComponentUpdate(b,p.__s,A)){e.__v!=i.__v&&(p.props=b,p.state=p.__s,p.__d=!1),e.__e=i.__e,e.__k=i.__k,e.__k.some(function(n){n&&(n.__=e)}),k.push.apply(p.__h,p._sb),p._sb=[],p.__h.length&&u.push(p),c=E(i);break n}p.componentWillUpdate!=m&&p.componentWillUpdate(b,p.__s,A),x&&p.componentDidUpdate!=m&&p.__h.push(function(){p.componentDidUpdate(d,v,_)})}if(p.context=A,p.props=b,p.__P=n,p.__e=!1,F=t.__r,H=0,x)p.state=p.__s,p.__d=!1,F&&F(e),h=p.render(p.props,p.state,p.context),k.push.apply(p.__h,p._sb),p._sb=[];else do{p.__d=!1,F&&F(e),h=p.render(p.props,p.state,p.context),p.state=p.__s}while(p.__d&&++H<25);p.state=p.__s,p.getChildContext!=m&&(r=M(M({},r),p.getChildContext())),x&&!y&&p.getSnapshotBeforeUpdate!=m&&(_=p.getSnapshotBeforeUpdate(d,v)),L=h!=m&&h.type===I&&h.key==m?J(h.props.children):h,c=j(n,C(L)?L:[L],e,i,r,o,f,u,c,a,s),p.base=e.__e,e.__u&=-161,p.__h.length&&u.push(p),w&&(p.__E=p.__=m)}catch(n){if(u.length=l,e.__v=m,a||f!=m){if(n.then){for(e.__u|=a?160:128;c&&8==c.nodeType&&c.nextSibling;)c=c.nextSibling;f!=m&&(f[f.indexOf(c)]=m),e.__e=c}else if(f!=m)for(T=f.length;T--;)S(f[T])}else e.__e=i.__e;e.__k==m&&(e.__k=i.__k||[]),n.then||D(e),t.__e(n,e,i)}}else f==m&&e.__v==i.__v?(e.__k=i.__k,e.__e=i.__e):c=e.__e=K(i.__e,e,i,r,o,f,u,a,s);return(h=t.diffed)&&h(e),128&e.__u?void 0:c}function D(n){n&&(n.__c&&(n.__c.__e=!0),n.__k&&n.__k.some(D))}function G(n,e,i){for(var r=0;r<i.length;r++)Q(i[r],i[++r],i[++r]);t.__c&&t.__c(e,n),n.some(function(e){try{n=e.__h,e.__h=[],n.some(function(n){n.call(e)})}catch(n){t.__e(n,e.__v)}})}function J(n){return"object"!=typeof n||n==m||n.__b>0?n:C(n)?n.map(J):n.constructor!==g?null:M({},n)}function K(e,i,r,o,f,u,c,a,s){var h,l,p,y,d,v,k,x=r.props||b,M=i.props,$=i.type;if("svg"==$?f=_:"math"==$?f="http://www.w3.org/1998/Math/MathML":f||(f=w),u!=m)for(h=0;h<u.length;h++)if((d=u[h])&&"setAttribute"in d==!!$&&($?d.localName==$:3==d.nodeType)){e=d,u[h]=m;break}if(e==m){if($==m)return document.createTextNode(M);e=document.createElementNS(f,$,M.is&&M),a&&(t.__m&&t.__m(i,u),a=!1),u=m}if($==m)x===M||a&&e.data==M||(e.data=M);else{if(u="textarea"==$&&M.defaultValue!=m?m:u&&n.call(e.childNodes),!a&&u!=m)for(x={},h=0;h<e.attributes.length;h++)x[(d=e.attributes[h]).name]=d.value;for(h in x)d=x[h],"dangerouslySetInnerHTML"==h?p=d:"children"==h||h in M||"value"==h&&"defaultValue"in M||"checked"==h&&"defaultChecked"in M||R(e,h,m,d,f);for(h in M)d=M[h],"children"==h?y=d:"dangerouslySetInnerHTML"==h?l=d:"value"==h?v=d:"checked"==h?k=d:a&&"function"!=typeof d||x[h]===d||R(e,h,d,x[h],f);if(l)a||p&&(l.__html==p.__html||l.__html==e.innerHTML)||(e.innerHTML=l.__html),i.__k=[];else if(p&&(e.innerHTML=""),j("template"==i.type?e.content:e,C(y)?y:[y],i,r,o,"foreignObject"==$?w:f,u,c,u?u[0]:r.__k&&E(r,0),a,s),u!=m)for(h=u.length;h--;)S(u[h]);a&&"textarea"!=$||(h="value","progress"==$&&v==m?e.removeAttribute("value"):v!=g&&(v!==e[h]||"progress"==$&&!v||"option"==$&&v!=x[h])&&R(e,h,v,x[h],f),h="checked",k!=g&&k!=e[h]&&R(e,h,k,x[h],f))}return e}function Q(n,e,i){try{if("function"==typeof n){var r="function"==typeof n.__u;r&&n.__u(),r&&e==m||(n.__u=n(e))}else n.current=e}catch(n){t.__e(n,i)}}function U(n,e,i){var r,o;if(t.unmount&&t.unmount(n),(r=n.ref)&&(r.current&&r.current!=n.__e||Q(r,m,e)),(r=n.__c)!=m){if(r.componentWillUnmount)try{r.componentWillUnmount()}catch(n){t.__e(n,e)}r.base=r.__P=r.__n=m}if(r=n.__k)for(o=0;o<r.length;o++)r[o]&&U(r[o],e,i||"function"!=typeof n.type);i||S(n.__e),n.__c=n.__=n.__e=g}function W(n,t,e){return this.constructor(n,e)}function X(e,i,r){var o,f,u,c;i==document&&(i=document.documentElement),t.__&&t.__(e,i),f=(o="function"==typeof r)?m:r&&r.__k||i.__k,u=[],c=[],B(i,e=(!o&&r||i).__k=$(I,m,[e]),f||b,b,i.namespaceURI,!o&&r?[r]:f?m:i.firstChild?n.call(i.childNodes):m,u,!o&&r?r:f?f.__e:i.firstChild,o,c),G(u,e,c),e.props.children=m}n=k.slice,t={__e:function(n,t,e,i){for(var r,o,f;t=t.__;)if((r=t.__c)&&!r.__)try{if((o=r.constructor)&&o.getDerivedStateFromError!=m&&(r.setState(o.getDerivedStateFromError(n)),f=r.__d),r.componentDidCatch!=m&&(r.componentDidCatch(n,i||{}),f=r.__d),f)return r.__E=r}catch(t){n=t}throw n}},e=0,i=function(n){return n!=m&&n.constructor===g},P.prototype.setState=function(n,t){var e;e=this.__s!=m&&this.__s!=this.state?this.__s:this.__s=M({},this.state),"function"==typeof n&&(n=n(M({},e),this.props)),n&&M(e,n),n!=m&&this.__v&&(t&&this._sb.push(t),L(this))},P.prototype.forceUpdate=function(n){this.__v&&(this.__e=!0,n&&this.__h.push(n),L(this))},P.prototype.render=I,r=[],f="function"==typeof Promise?Promise.prototype.then.bind(Promise.resolve()):setTimeout,u=function(n,t){return n.__v.__b-t.__v.__b},T.__r=0,c=Math.random().toString(8),a="__d"+c,s="__a"+c,h=/(PointerCapture)$|Capture$/i,l=0,p=q(!1),y=q(!0),d=0,v={__proto__:null,render:X,hydrate:function n(t,e){X(t,e,n)},createElement:$,h:$,Fragment:I,createRef:function(){return{current:m}},isValidElement:i,Component:P,cloneElement:function(t,e,i){var r,o,f,u,c=M({},t.props);for(f in t.type&&t.type.defaultProps&&(u=t.type.defaultProps),e)"key"==f?r=e[f]:"ref"==f?o=e[f]:c[f]=e[f]===g&&u!=g?u[f]:e[f];return arguments.length>2&&(c.children=arguments.length>3?n.call(arguments,2):i),A(t.type,c,r||t.key,o||t.ref,m)},createContext:function(n){function t(n){var e,i;return this.getChildContext||(e=new Set,(i={})[t.__c]=this,this.getChildContext=function(){return i},this.componentWillUnmount=function(){e=m},this.shouldComponentUpdate=function(n){this.props.value!=n.value&&e.forEach(function(n){n.__e=!0,L(n)})},this.sub=function(n){e.add(n);var t=n.componentWillUnmount;n.componentWillUnmount=function(){e&&e.delete(n),t&&t.call(n)}}),n.children}return t.__c="__cC"+d++,t.__=n,t.Provider=t.__l=(t.Consumer=function(n,t){return n.children(t)}).contextType=t,t},toChildArray:function n(t,e){return e=e||[],t==m||"boolean"==typeof t||(C(t)?t.some(function(t){n(t,e)}):e.push(t)),e},options:t},typeof module<"u"?module.exports=v:self.preact=v});
+
+</script>
+<script>
+(function () {
+  var h = preact.h, render = preact.render, Fragment = preact.Fragment;
+  var HOLE = /\{\{\s*([^}]*?)\s*\}\}/g;
+  var WHOLE = /^\s*\{\{\s*([^}]*?)\s*\}\}\s*$/;
+
+  function lookup(path, scope) {
+    path = path.trim();
+    if (path === 'true') return true;
+    if (path === 'false') return false;
+    if (path === 'null') return null;
+    if (/^-?\d+(\.\d+)?$/.test(path)) return Number(path);
+    var cur = scope, parts = path.split('.');
+    for (var i = 0; i < parts.length; i++) { if (cur == null) return undefined; cur = cur[parts[i]]; }
+    return cur;
+  }
+  function interp(str, scope) {
+    return str.replace(HOLE, function (_, p) { var v = lookup(p, scope); return v == null ? '' : String(v); });
+  }
+  function attrVal(v, scope) {
+    var m = WHOLE.exec(v);
+    if (m) return lookup(m[1], scope);
+    return v.indexOf('{{') >= 0 ? interp(v, scope) : v;
+  }
+  function buildList(nodes, scope, out) {
+    for (var i = 0; i < nodes.length; i++) buildNode(nodes[i], scope, out);
+    return out;
+  }
+  function buildNode(node, scope, out) {
+    if (node.nodeType === 3) {
+      var t = node.nodeValue;
+      out.push(t.indexOf('{{') >= 0 ? interp(t, scope) : t);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    var tag = node.localName;
+    if (tag === 'sc-if') {
+      if (attrVal(node.getAttribute('value') || '', scope)) buildList(node.childNodes, scope, out);
+      return;
+    }
+    if (tag === 'sc-for') {
+      var list = attrVal(node.getAttribute('list') || '', scope) || [];
+      var as = node.getAttribute('as') || 'item';
+      for (var i = 0; i < list.length; i++) {
+        var s = Object.create(scope); s[as] = list[i]; s.$index = i;
+        buildList(node.childNodes, s, out);
+      }
+      return;
+    }
+    var props = {}, attrs = node.attributes;
+    for (var j = 0; j < attrs.length; j++) {
+      var name = attrs[j].name;
+      if (name.indexOf('hint-') === 0) continue;
+      var v = attrVal(attrs[j].value, scope);
+      if (name.slice(0, 2).toLowerCase() === 'on') {
+        var ev = name.toLowerCase();
+        if (ev === 'onchange' && (tag === 'input' || tag === 'textarea')) ev = 'oninput';
+        if (typeof v === 'function') props[ev] = wrap(v);
+        continue;
+      }
+      props[name] = v;
+    }
+    out.push(h(tag, props, buildList(node.childNodes, scope, [])));
+  }
+  function wrap(fn) {
+    return function (e) { try { if (!e.nativeEvent) e.nativeEvent = e; } catch (_) {} return fn(e); };
+  }
+
+  window.DCLogic = function DCLogic(props) { this.props = props || {}; this.state = {}; };
+  window.DCLogic.prototype.setState = function (p) {
+    var next = typeof p === 'function' ? p(this.state, this.props) : p;
+    this.state = Object.assign({}, this.state, next);
+    schedule();
+  };
+  window.DCLogic.prototype.forceUpdate = function () { schedule(); };
+
+  var inst, tpl, app, queued = false;
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    Promise.resolve().then(function () { queued = false; paint(); });
+  }
+  function paint() {
+    var vals = inst.renderVals();
+    render(h(Fragment, null, buildList(tpl.content.childNodes, vals, [])), app);
+  }
+  window.__mountPrototype = function (Component, props) {
+    tpl = document.getElementById('dc-template');
+    app = document.getElementById('app');
+    inst = new Component(props);
+    paint();
+  };
+})();
+</script>
+<script>
+class Component extends DCLogic {
+  example() {
+    return {
+      title: '신규 기능 출시 일정 회의',
+      date: '2026-09-22 14:00',
+      attendees: '김민수, 이지은, 화자3',
+      summary: [
+        '신규 기능 출시일을 두고 개발 일정과 QA 기간을 논의했다.',
+        '마케팅 자료는 출시 1주 전까지 준비하기로 했다.'
+      ],
+      decisions: [
+        { text: '출시일을 10월 15일로 확정한다.', ts: '12:34' },
+        { text: 'QA 기간은 5일로 한다.', ts: '18:02' }
+      ],
+      todos: [
+        { task: '출시 공지 초안 작성', owner: '이지은', due: '10월 8일', ts: '21:45' },
+        { task: '보고서 정리', owner: '김민수', due: '미정', ts: '23:10' },
+        { task: '테스트 계정 준비', owner: '미정', due: '미정', ts: '25:31' }
+      ]
+    };
+  }
+
+  scriptLines() {
+    const rows = [
+      ['00:00', '김민수', '시작하겠습니다. 오늘은 출시 일정 얘기부터 하죠.'],
+      ['00:07', '이지은', '네, 개발 쪽 일정부터 공유드릴게요.'],
+      ['00:15', '화자3', '개발은 10월 첫 주 안에 마무리될 것 같습니다.'],
+      null,
+      ['12:20', '이지은', '그때 개발이 끝나면 QA를 거쳐도 15일 출시는 가능해 보여요.'],
+      ['12:34', '김민수', '그럼 출시일은 10월 15일로 확정하겠습니다.'],
+      null,
+      ['17:48', '화자3', 'QA는 5일 정도면 충분할 것 같습니다.'],
+      ['18:02', '김민수', '좋습니다. QA 기간은 5일로 하죠.'],
+      null,
+      ['19:30', '이지은', '마케팅 자료는 출시 1주 전까지 준비해 두겠습니다.'],
+      null,
+      ['21:45', '김민수', '출시 공지 초안은 지은 님이 10월 8일까지 부탁드려요.'],
+      ['21:52', '이지은', '네, 8일까지 드릴게요.'],
+      ['23:10', '김민수', '보고서 정리는 제가 맡겠습니다.'],
+      ['25:31', '이지은', '테스트 계정도 누군가 준비해야 할 것 같은데요.'],
+      ['25:38', '김민수', '그건 다음에 다시 얘기하죠. 오늘은 여기까지 하겠습니다.']
+    ];
+    return rows.map((r) => r
+      ? { line: true, gap: false, ts: r[0], who: r[1], text: r[2] }
+      : { line: false, gap: true, ts: '', who: '', text: '' });
+  }
+
+  defaults() {
+    return {
+      screen: 'home', mode: 'A', modal: null, leaveFrom: 'form',
+      file: null, errFile: false,
+      title: '', date: '',
+      attendees: [], attDraft: '',
+      recipients: [], rcpDraft: '', rcpError: '', errRcp: false,
+      editing: null, draft: null,
+      m: this.example(), toast: false
+    };
+  }
+
+  preset() {
+    const start = this.props.start || 'home';
+    const filled = {
+      file: { name: '주간회의_0922.m4a', ext: 'm4a' },
+      date: '2026-09-22T14:00',
+      attendees: ['김민수', '이지은'],
+      recipients: ['minsu.kim@example.com', 'jieun.lee@example.com', 'team@example.com']
+    };
+    const edited = this.example();
+    edited.todos[1].due = '10월 10일';
+    const withFilled = (o) => Object.assign({}, filled, o);
+    const P = {
+      home: {},
+      formA: withFilled({ screen: 'form', mode: 'A' }),
+      picker: { screen: 'form', mode: 'A', modal: 'picker' },
+      formError: {
+        screen: 'form', mode: 'A',
+        file: { name: '화면녹화_0922.mp4', ext: 'mp4' },
+        date: '2026-09-22T14:00', attendees: ['김민수', '이지은'],
+        recipients: ['minsu.kim@example.com'],
+        rcpDraft: 'jieun.lee@example',
+        rcpError: '메일 주소 형식이 아닙니다. 예: name@company.com'
+      },
+      procA: withFilled({ screen: 'processing', mode: 'A' }),
+      review: withFilled({ screen: 'review', mode: 'A' }),
+      reviewEdit: withFilled({
+        screen: 'review', mode: 'A', editing: 'todos',
+        draft: { todos: [
+          { task: '출시 공지 초안 작성', owner: '이지은', due: '10월 8일', ts: '21:45' },
+          { task: '보고서 정리', owner: '김민수', due: '10월 10일', ts: '23:10' },
+          { task: '테스트 계정 준비', owner: '', due: '', ts: '25:31' }
+        ] }
+      }),
+      download: withFilled({ screen: 'review', mode: 'A', toast: true }),
+      confirmSend: withFilled({ screen: 'review', mode: 'A', modal: 'send', m: edited }),
+      sentA: withFilled({ screen: 'sentA', mode: 'A', m: edited }),
+      formB: withFilled({ screen: 'form', mode: 'B' }),
+      confirmB: withFilled({ screen: 'form', mode: 'B', modal: 'confirmB' }),
+      procB: withFilled({ screen: 'processing', mode: 'B' }),
+      resultB: withFilled({ screen: 'resultB', mode: 'B' }),
+      leave: withFilled({ screen: 'review', mode: 'A', modal: 'leave', leaveFrom: 'review' })
+    };
+    return Object.assign(this.defaults(), P[start] || {});
+  }
+
+  renderVals() {
+    const st = Object.assign(this.preset(), this.state || {});
+    const set = (p) => this.setState(p);
+    const dev = this.props.device || 'pc';
+    const isPC = dev === 'pc';
+    const isTab = dev === 'tablet';
+    const isMob = dev === 'mobile';
+
+    const L = {
+      w: isPC ? 1440 : isTab ? 834 : 390,
+      h: isPC ? 900 : isTab ? 1194 : 844,
+      padX: isPC ? 56 : isTab ? 40 : 16,
+      topPad: isPC ? 44 : isTab ? 36 : 22,
+      botPad: isMob ? 32 : 64,
+      headH: isMob ? 56 : 64,
+      brand: isMob ? 15 : 16,
+      h1: isPC ? 40 : isTab ? 34 : 26,
+      h2: isPC ? 28 : isTab ? 26 : 22,
+      docTitle: isPC ? 30 : isTab ? 28 : 23,
+      lead: isMob ? 15 : 17,
+      homeGap: isMob ? 28 : 44,
+      cols2: isMob ? 'repeat(1, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))',
+      cols3: isMob ? 'repeat(1, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))',
+      formCols: isPC ? 'minmax(0, 1fr) 360px' : 'minmax(0, 1fr)',
+      docCols: isPC ? 'minmax(0, 1fr) 340px' : 'minmax(0, 1fr)',
+      cardPad: isMob ? '22px 18px' : '28px',
+      secPad: isMob ? '20px 16px' : '24px 28px',
+      docPad: isPC ? '44px 52px' : isTab ? '36px 36px' : '22px 16px',
+      todoCols: 'minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 76px',
+      todoEditCols: isMob ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 100px 44px',
+      decEditCols: isMob ? 'minmax(0, 1fr) 44px' : 'minmax(0, 1fr) 110px 44px',
+      spanFull: isMob ? '1 / -1' : 'auto',
+      editRowCard: isMob ? 'padding: 10px; border: 1px solid #DDD8CE; border-radius: 10px; background: #FFFFFF' : 'padding: 0',
+      scriptH: isTab ? 440 : 360,
+      whoW: isMob ? 'auto' : '64px',
+      scriptBasis: isMob ? '100%' : '0px',
+      dlCols: isMob ? 'minmax(0, 1fr)' : '84px minmax(0, 1fr)',
+      ovAlign: isMob ? 'flex-end' : 'center',
+      ovPad: isMob ? '0px' : '32px',
+      sheetW: isMob ? '100%' : '560px',
+      sheetR: isMob ? '20px 20px 0 0' : '16px',
+      sheetPad: isMob ? '22px 18px 26px' : '28px',
+      actDir: isMob ? 'column-reverse' : 'row',
+      toastBottom: isPC ? 32 : 108,
+      toastW: isMob ? 'calc(100% - 32px)' : '500px',
+      barBtnFlex: isMob ? '1 1 0' : '0 0 auto'
+    };
+
+    const s = st.screen;
+    const isA = st.mode !== 'B';
+    const isB = st.mode === 'B';
+    const scr = {
+      home: s === 'home', form: s === 'form', proc: s === 'processing',
+      doc: s === 'review' || s === 'sentA' || s === 'resultB',
+      review: s === 'review', sentA: s === 'sentA', resultB: s === 'resultB',
+      done: s === 'sentA' || s === 'resultB'
+    };
+
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const clean = (v) => String(v == null ? '' : v).trim();
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const today = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
+    const dayOf = (v) => { const r = /^(\d{4}-\d{2}-\d{2})/.exec(clean(v)); return r ? r[1] : ''; };
+    const undef = (v) => { const t = clean(v); return t === '' || t === '미정'; };
+    const show = (v) => (undef(v) ? '미정' : clean(v));
+    const composing = (e) => !!((e.nativeEvent && e.nativeEvent.isComposing) || e.keyCode === 229);
+
+    const goHome = () => set(Object.assign(this.defaults(), { screen: 'home' }));
+    const closeModal = () => set({ modal: null });
+
+    const OK = ['mp3', 'm4a', 'wav'];
+    const emailRe = /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/;
+    const file = st.file;
+    const fileBad = !!file && OK.indexOf(file.ext) < 0;
+    const fileErrMsg = fileBad
+      ? '지원하지 않는 형식입니다(.' + file.ext + '). mp3, m4a, wav 파일을 올려 주세요.'
+      : (st.errFile && !file ? '녹음 파일을 올려 주세요.' : '');
+
+    const tryAddRcp = (raw, list) => {
+      const v = clean(raw).replace(/,+$/, '').trim();
+      if (!v) return { list: list, err: '', draft: '' };
+      if (!emailRe.test(v)) return { list: list, err: '메일 주소 형식이 아닙니다. 예: name@company.com', draft: v };
+      if (list.indexOf(v) >= 0) return { list: list, err: '이미 추가한 주소입니다.', draft: v };
+      return { list: list.concat([v]), err: '', draft: '' };
+    };
+    const addRcp = () => {
+      const r = tryAddRcp(st.rcpDraft, st.recipients);
+      set({ recipients: r.list, rcpError: r.err, rcpDraft: r.draft, errRcp: r.list.length ? false : st.errRcp });
+    };
+    const addAtt = () => {
+      const v = clean(st.attDraft).replace(/,+$/, '').trim();
+      if (!v) return;
+      if (st.attendees.indexOf(v) >= 0) { set({ attDraft: '' }); return; }
+      set({ attendees: st.attendees.concat([v]), attDraft: '' });
+    };
+
+    const buildM = () => {
+      const m0 = this.example();
+      if (clean(st.title)) m0.title = clean(st.title);
+      if (clean(st.date)) m0.date = clean(st.date).replace('T', ' ');
+      return m0;
+    };
+
+    const submit = () => {
+      const r = tryAddRcp(st.rcpDraft, st.recipients);
+      const missingFile = !file;
+      const noRcp = r.list.length === 0;
+      const patch = { recipients: r.list, rcpDraft: r.draft, rcpError: r.err, errFile: missingFile, errRcp: noRcp };
+      if (missingFile || fileBad || noRcp || r.err) { set(patch); return; }
+      if (isB) { set(Object.assign(patch, { modal: 'confirmB' })); return; }
+      set(Object.assign(patch, { screen: 'processing', m: buildM(), editing: null, draft: null }));
+    };
+
+    const formEmpty = !file && !clean(st.title) && !clean(st.date) && !st.attendees.length && !st.recipients.length && !clean(st.attDraft) && !clean(st.rcpDraft);
+    const askLeave = () => {
+      if (s === 'form' && formEmpty) { goHome(); return; }
+      set({ modal: 'leave', leaveFrom: s, toast: false });
+    };
+
+    const tabBase = 'box-sizing: border-box; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 14px; border-radius: 10px; font: inherit; text-align: left; cursor: pointer; ';
+    const tabA = tabBase + (isA
+      ? 'background: #FFFFFF; border: 1.5px solid #26489A; color: #1E3A7E; box-shadow: 0 1px 2px rgba(28, 27, 24, 0.08)'
+      : 'background: transparent; border: 1.5px solid transparent; color: #5E5A52');
+    const tabB = tabBase + (isB
+      ? 'background: #FFFFFF; border: 1.5px solid #B84E17; color: #8F3C10; box-shadow: 0 1px 2px rgba(28, 27, 24, 0.08)'
+      : 'background: transparent; border: 1.5px solid transparent; color: #5E5A52');
+
+    const rcps = st.recipients.map((r, i) => ({
+      email: r,
+      removeLabel: r + ' 빼기',
+      remove: () => set({ recipients: st.recipients.filter((_, j) => j !== i) })
+    }));
+    const rcpCount = st.recipients.length;
+    const atts = st.attendees.map((a, i) => ({
+      name: a,
+      removeLabel: a + ' 빼기',
+      remove: () => set({ attendees: st.attendees.filter((_, j) => j !== i) })
+    }));
+    const rcpErrMsg = st.rcpError || (st.errRcp && rcpCount === 0 ? '받는 메일 주소를 1개 이상 입력해 주세요.' : '');
+
+    const pickFiles = [
+      { name: '주간회의_0922.m4a', ext: 'm4a' },
+      { name: '기획회의_0918.mp3', ext: 'mp3' },
+      { name: '인터뷰_녹음.wav', ext: 'wav' },
+      { name: '화면녹화_0922.mp4', ext: 'mp4' }
+    ].map((f) => {
+      const ok = OK.indexOf(f.ext) >= 0;
+      return {
+        name: f.name,
+        tag: ok ? '지원 형식' : '지원 안 함',
+        tagStyle: 'flex: none; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; ' + (ok ? 'background: #E6F1EA; color: #2F6B43' : 'background: #FBEAE8; color: #B3261E'),
+        pick: () => set({ file: { name: f.name, ext: f.ext }, errFile: false, modal: null })
+      };
+    });
+
+    const m = st.m;
+    const ed = st.editing;
+    const U = 'display: inline-flex; align-items: center; padding: 0 8px; border: 1px dashed #A39C8F; border-radius: 6px; background: #FAF9F6; color: #5E5A52; font-size: 14px';
+    const V = { meta: ed !== 'meta', summary: ed !== 'summary', decisions: ed !== 'decisions', todos: ed !== 'todos' };
+    const E = { meta: ed === 'meta', summary: ed === 'summary', decisions: ed === 'decisions', todos: ed === 'todos' };
+    const mv = {
+      title: m.title,
+      date: show(m.date), dateStyle: undef(m.date) ? U : '',
+      attendees: show(m.attendees), attStyle: undef(m.attendees) ? U : '',
+      summary: m.summary.map((t) => ({ text: t })),
+      decs: m.decisions.map((x) => ({ text: x.text, ts: x.ts, hasTs: !!x.ts })),
+      decList: V.decisions && m.decisions.length > 0,
+      decNone: V.decisions && m.decisions.length === 0,
+      todos: m.todos.map((x) => ({
+        task: x.task, owner: show(x.owner), due: show(x.due),
+        ownerStyle: undef(x.owner) ? U : '', dueStyle: undef(x.due) ? U : '',
+        tsLabel: x.ts ? '[' + x.ts + ']' : '—'
+      })),
+      todoTable: V.todos && m.todos.length > 0 && !isMob,
+      todoCards: V.todos && m.todos.length > 0 && isMob,
+      todoNone: V.todos && m.todos.length === 0
+    };
+
+    const startEdit = (sec) => () => {
+      const blank = (v) => (undef(v) ? '' : v);
+      let draft;
+      if (sec === 'meta') draft = { title: m.title, date: blank(m.date), attendees: blank(m.attendees) };
+      else if (sec === 'summary') draft = { summary: m.summary.map((t) => ({ text: t })) };
+      else if (sec === 'decisions') draft = { decisions: m.decisions.map((x) => ({ text: x.text, ts: x.ts })) };
+      else draft = { todos: m.todos.map((x) => ({ task: x.task, owner: blank(x.owner), due: blank(x.due), ts: x.ts })) };
+      set({ editing: sec, draft: draft, toast: false });
+    };
+    const cleanTs = (v) => clean(v).replace(/[\[\]`]/g, '');
+    const applyEdit = () => {
+      const d0 = st.draft || {};
+      const nm = clone(m);
+      if (ed === 'meta') {
+        nm.title = clean(d0.title) || nm.title;
+        nm.date = clean(d0.date) || '미정';
+        nm.attendees = clean(d0.attendees) || '미정';
+      }
+      if (ed === 'summary') nm.summary = (d0.summary || []).map((x) => clean(x.text)).filter((x) => x);
+      if (ed === 'decisions') nm.decisions = (d0.decisions || []).map((x) => ({ text: clean(x.text), ts: cleanTs(x.ts) })).filter((x) => x.text);
+      if (ed === 'todos') nm.todos = (d0.todos || []).map((x) => ({ task: clean(x.task), owner: clean(x.owner) || '미정', due: clean(x.due) || '미정', ts: cleanTs(x.ts) })).filter((x) => x.task);
+      set({ m: nm, editing: null, draft: null });
+    };
+    const upd = (key, i, field) => (e) => {
+      const nd = clone(st.draft || {});
+      if (key === 'meta') nd[field] = e.target.value;
+      else nd[key][i][field] = e.target.value;
+      set({ draft: nd });
+    };
+    const del = (key, i) => () => {
+      const nd = clone(st.draft || {});
+      nd[key].splice(i, 1);
+      set({ draft: nd });
+    };
+    const addRow = (key, row) => () => {
+      const nd = clone(st.draft || {});
+      nd[key] = (nd[key] || []).concat([row]);
+      set({ draft: nd });
+    };
+    const d = st.draft || {};
+    const dv = {
+      title: d.title || '', date: d.date || '', attendees: d.attendees || '',
+      onTitle: upd('meta', 0, 'title'), onDate: upd('meta', 0, 'date'), onAtt: upd('meta', 0, 'attendees'),
+      fileName: '회의록_' + (dayOf(d.date) || today) + '.md',
+      summary: (d.summary || []).map((x, i) => ({
+        text: x.text, label: '요약 ' + (i + 1) + '번째 줄', delLabel: '요약 ' + (i + 1) + '번째 줄 지우기',
+        onText: upd('summary', i, 'text'), onDel: del('summary', i)
+      })),
+      decisions: (d.decisions || []).map((x, i) => ({
+        text: x.text, ts: x.ts,
+        label: '결정사항 ' + (i + 1), tsLabel: '결정사항 ' + (i + 1) + ' 근거 타임스탬프', delLabel: '결정사항 ' + (i + 1) + ' 지우기',
+        onText: upd('decisions', i, 'text'), onTs: upd('decisions', i, 'ts'), onDel: del('decisions', i)
+      })),
+      todos: (d.todos || []).map((x, i) => ({
+        task: x.task, owner: x.owner, due: x.due, ts: x.ts,
+        taskLabel: '할 일 ' + (i + 1), ownerLabel: '할 일 ' + (i + 1) + ' 담당자', dueLabel: '할 일 ' + (i + 1) + ' 기한',
+        tsLabel: '할 일 ' + (i + 1) + ' 근거 타임스탬프', delLabel: '할 일 ' + (i + 1) + ' 지우기',
+        onTask: upd('todos', i, 'task'), onOwner: upd('todos', i, 'owner'), onDue: upd('todos', i, 'due'),
+        onTs: upd('todos', i, 'ts'), onDel: del('todos', i)
+      }))
+    };
+
+    const mDay = dayOf(m.date);
+    const fileName = '회의록_' + (mDay || today) + '.md';
+    const mailSubject = '[회의록] ' + m.title + ' (' + (mDay || '미정') + ')';
+    const editingAny = !!ed;
+    const canEdit = s === 'review' && !ed;
+
+    return {
+      L: L, scr: scr,
+      isPC: isPC, isMob: isMob, notPC: !isPC, notMob: !isMob,
+      isA: isA, isB: isB,
+      badgeA: s !== 'home' && isA, badgeB: s !== 'home' && isB,
+      homeBtnText: (scr.form || scr.doc) && !isMob,
+      homeBtnIcon: (scr.form || scr.doc) && isMob,
+      askLeave: askLeave, goHome: goHome, closeModal: closeModal,
+      chooseA: () => set({ screen: 'form', mode: 'A' }),
+      chooseB: () => set({ screen: 'form', mode: 'B' }),
+      setModeA: () => set({ mode: 'A' }),
+      setModeB: () => set({ mode: 'B' }),
+      tabA: tabA, tabB: tabB,
+
+      noFile: !file, hasFile: !!file,
+      fileLabel: file ? file.name : '',
+      fileMeta: fileBad ? '지원하지 않는 형식' : (file ? file.ext + ' 파일 · 아직 올리지 않았습니다' : ''),
+      fileBorder: fileBad ? '#B3261E' : '#DDD8CE',
+      fileBg: fileBad ? '#FBEAE8' : '#FAF9F6',
+      fileIconColor: fileBad ? '#B3261E' : '#3D3A34',
+      fileMetaColor: fileBad ? '#B3261E' : '#5E5A52',
+      dropBorder: st.errFile && !file ? '#B3261E' : '#A39C8F',
+      fileErrShow: !!fileErrMsg, fileErrMsg: fileErrMsg,
+      fileSummary: file ? file.name : '아직 고르지 않았습니다',
+      openPicker: () => set({ modal: 'picker' }),
+      removeFile: () => set({ file: null }),
+      pickFiles: pickFiles,
+
+      title: st.title, onTitle: (e) => set({ title: e.target.value }),
+      date: st.date, onDate: (e) => set({ date: e.target.value }),
+      atts: atts, attHas: atts.length > 0,
+      attDraft: st.attDraft,
+      onAttDraft: (e) => set({ attDraft: e.target.value }),
+      onAttKey: (e) => { if (composing(e)) return; if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addAtt(); } },
+      addAtt: addAtt,
+
+      rcps: rcps, rcpCount: rcpCount, rcpHas: rcpCount > 0, rcpNone: rcpCount === 0,
+      rcpSummary: rcpCount ? rcpCount + '명' : '아직 없습니다',
+      rcpDraft: st.rcpDraft,
+      onRcpDraft: (e) => set({ rcpDraft: e.target.value, rcpError: '' }),
+      onRcpKey: (e) => { if (composing(e)) return; if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addRcp(); } },
+      addRcp: addRcp,
+      rcpBorder: isB ? '1.5px solid #EDC3A6' : '1px solid #DDD8CE',
+      rcpInputBorder: st.rcpError ? '#B3261E' : '#C9C3B6',
+      rcpInvalid: !!st.rcpError,
+      rcpErrShow: !!rcpErrMsg, rcpErrMsg: rcpErrMsg,
+      submit: submit,
+      barForm: scr.form && !isPC,
+      barDoc: scr.doc && !isPC,
+      barEditHint: scr.review && editingAny,
+
+      modeColor: isB ? '#B84E17' : '#26489A',
+      procCurBg: isB ? '#FDF6F1' : '#F6F8FD',
+      curTag: 'flex: none; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; ' + (isB ? 'background: #FBEDE3; color: #8F3C10' : 'background: #E8EDF8; color: #1E3A7E'),
+      procNext: () => set({ screen: isB ? 'resultB' : 'review' }),
+      confirmGo: () => set({ modal: null, screen: 'processing', m: buildM(), editing: null, draft: null }),
+
+      mv: mv, V: V, E: E, dv: dv, canEdit: canEdit,
+      editMeta: startEdit('meta'), editSummary: startEdit('summary'),
+      editDecisions: startEdit('decisions'), editTodos: startEdit('todos'),
+      addSummary: addRow('summary', { text: '' }),
+      addDecision: addRow('decisions', { text: '', ts: '' }),
+      addTodo: addRow('todos', { task: '', owner: '', due: '', ts: '' }),
+      cancelEdit: () => set({ editing: null, draft: null }),
+      applyEdit: applyEdit,
+      script: this.scriptLines(),
+
+      fileName: fileName, mailSubject: mailSubject,
+      editingAny: editingAny,
+      sendOpacity: editingAny ? '0.45' : '1',
+      sendCursor: editingAny ? 'not-allowed' : 'pointer',
+      openSend: () => { if (!ed) set({ modal: 'send', toast: false }); },
+      doSend: () => set({ modal: null, screen: 'sentA', toast: false }),
+      download: () => set({ toast: true }),
+      toast: !!st.toast,
+      closeToast: () => set({ toast: false }),
+
+      mo: { open: !!st.modal, picker: st.modal === 'picker', confirmB: st.modal === 'confirmB', send: st.modal === 'send', leave: st.modal === 'leave' },
+      lv: { form: st.leaveFrom === 'form', review: st.leaveFrom === 'review', done: st.leaveFrom === 'sentA' || st.leaveFrom === 'resultB' }
+    };
+  }
+}
+</script>
+<script>
+(function () {
+  var W = 1440, H = 900;
+  var stage = document.getElementById('stage'), frame = document.getElementById('frame');
+  function fit() {
+    var s = Math.min((stage.clientWidth - 32) / W, (stage.clientHeight - 32) / H, 1);
+    frame.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  window.__mountPrototype(Component, { device: "pc", start: "home" });
+})();
+</script>
+</body>
+</html>
