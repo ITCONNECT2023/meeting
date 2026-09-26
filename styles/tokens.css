@@ -1,0 +1,84 @@
+/*
+ * EPIC 1-2: design tokens lifted from the interactive mockups
+ * (design/01_PC.html, 02_Tablet.html, 03_Mobile.html — all three share one
+ * template, so one token set serves every breakpoint).
+ *
+ * Breakpoints (documented here; @media queries need literal px values):
+ *   mobile: up to 599px  (mock width 390)
+ *   tablet: 600px–1199px (mock width 834)
+ *   pc:     1200px and up (mock width 1440)
+ */
+
+:root {
+  /* Base surfaces / neutrals */
+  --color-bg: #f4f2ec;
+  --color-surface: #ffffff;
+  --color-surface-muted: #faf9f6;
+  --color-surface-subtle: #efece5;
+  --color-chip-bg: #f1efe9;
+  --color-tab-bg: #e9e6de;
+  --color-divider: #ddd8ce;
+  --color-divider-strong: #eeeae2;
+  --color-border: #c9c3b6;
+  --color-border-muted: #a39c8f;
+
+  /* Text */
+  --color-text: #1c1b18;
+  --color-text-muted: #3d3a34;
+  --color-text-subtle: #5e5a52;
+  --color-text-faint: #8a857a;
+
+  /* Mode A — 방식 A / 검토 후 보내기 (blue) */
+  --color-mode-a: #26489a;
+  --color-mode-a-strong: #1e3a7e;
+  --color-mode-a-bg: #e8edf8;
+  --color-mode-a-bg-soft: #f3f5fb;
+  --color-mode-a-bg-softer: #f6f8fd;
+  --color-mode-a-border: #b9c7e6;
+
+  /* Mode B — 방식 B / 바로 보내기 (orange) */
+  --color-mode-b: #b84e17;
+  --color-mode-b-strong: #8f3c10;
+  --color-mode-b-bg: #fbede3;
+  --color-mode-b-bg-soft: #fdf4ee;
+  --color-mode-b-bg-softer: #fdf6f1;
+  --color-mode-b-border: #edc3a6;
+
+  /* Status */
+  --color-error: #b3261e;
+  --color-error-bg: #fbeae8;
+  --color-success: #2f6b43;
+  --color-success-bg: #e6f1ea;
+  --color-success-border: #bcd9c6;
+  --color-success-strong: #2a4a33;
+
+  /* Fonts — next/font/google supplies --font-sans-kr / --font-mono-ibm on
+     <html>; the literal fallback keeps the same computed family name even
+     if that variable is ever missing. */
+  --font-sans:
+    var(--font-sans-kr, "IBM Plex Sans KR"), "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  --font-mono:
+    var(--font-mono-ibm, "IBM Plex Mono"), "Apple SD Gothic Neo",
+    "Malgun Gothic", monospace;
+
+  /* Breakpoints, documented for reference (not usable inside @media) */
+  --breakpoint-tablet-min: 600px;
+  --breakpoint-pc-min: 1200px;
+
+  /* Header */
+  --header-height: 64px;
+  --header-height-mobile: 56px;
+  --header-padding-x: 56px;
+  --header-padding-x-tablet: 40px;
+  --header-padding-x-mobile: 16px;
+
+  /* Shared radii */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  --focus-ring-color: #26489a;
+}
