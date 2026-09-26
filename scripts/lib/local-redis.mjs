@@ -48,22 +48,31 @@ export function startLocalRedis() {
 const LIKELY_VIRTUAL_ADAPTER = /wsl|hyper-v|vethernet|virtualbox|vmware|docker/i;
 
 /**
- * This machine's non-internal IPv4 addresses, real-looking adapters first.
+ * This machine's non-internal IPv4 addresses, real-looking adapters first,
+ * each tagged with whether its adapter name matched LIKELY_VIRTUAL_ADAPTER.
  */
-export function getLanIPv4Addresses() {
+function getLanIPv4AddressDetails() {
   const interfaces = os.networkInterfaces();
-  const real = [];
-  const likelyVirtual = [];
+  const real = new Map();
+  const likelyVirtual = new Map();
 
   for (const [name, addresses] of Object.entries(interfaces)) {
     for (const addr of addresses ?? []) {
       if (addr.family !== "IPv4" || addr.internal) continue;
-      const target = LIKELY_VIRTUAL_ADAPTER.test(name) ? likelyVirtual : real;
-      target.push(addr.address);
+      const isVirtual = LIKELY_VIRTUAL_ADAPTER.test(name);
+      const target = isVirtual ? likelyVirtual : real;
+      target.set(addr.address, { address: addr.address, isVirtual });
     }
   }
 
-  return [...new Set(real), ...new Set(likelyVirtual)];
+  return [...real.values(), ...likelyVirtual.values()];
+}
+
+/**
+ * This machine's non-internal IPv4 addresses, real-looking adapters first.
+ */
+export function getLanIPv4Addresses() {
+  return getLanIPv4AddressDetails().map((detail) => detail.address);
 }
 
 /** Prints the URLs to open, plus the Windows Firewall reminder. */
@@ -71,8 +80,11 @@ export function printLocalUrls(port) {
   console.log("");
   console.log("아래 주소로 접속하세요:");
   console.log(`  http://localhost:${port}`);
-  for (const ip of getLanIPv4Addresses()) {
-    console.log(`  http://${ip}:${port}  (같은 Wi-Fi의 휴대폰/태블릿용)`);
+  for (const { address, isVirtual } of getLanIPv4AddressDetails()) {
+    const label = isVirtual
+      ? "(가상 네트워크 주소 · 휴대폰 접속용 아님)"
+      : "(같은 Wi-Fi의 휴대폰/태블릿용)";
+    console.log(`  http://${address}:${port}  ${label}`);
   }
   console.log("");
   console.log(
