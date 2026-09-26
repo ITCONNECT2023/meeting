@@ -1,0 +1,168 @@
+/* EPIC 1-4: 접속 암호 화면. Built from the mockups' parts: white card with
+   the #DDD8CE border, 48px input, dark 12px-radius primary button, and the
+   red alert-icon error line. */
+
+.main {
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--header-height));
+  min-height: calc(100dvh - var(--header-height));
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 40px;
+}
+
+/* Top-aligned with a viewport-relative offset (not vertically centered),
+   so the card doesn't jump when the error line appears. */
+@media (min-width: 600px) {
+  .main {
+    padding: clamp(48px, 16vh, 180px) 40px 96px;
+  }
+}
+
+@media (max-width: 599px) {
+  .main {
+    min-height: calc(100vh - var(--header-height-mobile));
+    min-height: calc(100dvh - var(--header-height-mobile));
+  }
+}
+
+.card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 20px 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-xl);
+}
+
+@media (min-width: 600px) {
+  .card {
+    padding: 40px 36px 36px;
+  }
+}
+
+.icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--color-chip-bg);
+  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 600px) {
+  .title {
+    font-size: 24px;
+  }
+}
+
+.lead {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-subtle);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 26px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 1px;
+}
+
+.inputError {
+  border-color: var(--color-error);
+}
+
+.inputError:focus-visible {
+  outline-color: var(--color-error);
+}
+
+.error {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-error);
+}
+
+.errorIcon {
+  flex: none;
+  display: inline-flex;
+  margin-top: 1px;
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--color-text);
+  border-radius: 12px;
+  background: var(--color-text);
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

@@ -19,6 +19,8 @@ playwright-report/
 test-results/
 coverage/
 tests/fixtures/audio/
+# Playwright login state (holds a session cookie)
+playwright/.auth/
 
 # typescript
 *.tsbuildinfo
