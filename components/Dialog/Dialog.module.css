@@ -1,0 +1,148 @@
+/* EPIC 2-6: dialog chrome (design/01_PC.html lines 607-690 — the "confirmB"
+   / "send" / "leave" dialogs, and the layout constants `L` around line
+   905-950). PC/tablet get a centered card; mobile (<=599px) gets a bottom
+   sheet, matched with a max-width media query rather than device
+   detection so there's no client/server hydration mismatch. */
+
+.dialog {
+  box-sizing: border-box;
+  width: 560px;
+  max-width: calc(100% - 64px);
+  max-height: 88%;
+  margin: auto;
+  padding: 28px;
+  border: none;
+  border-radius: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 24px 60px rgba(28, 27, 24, 0.25);
+}
+
+.dialog::backdrop {
+  background: rgba(28, 27, 24, 0.5);
+}
+
+@media (max-width: 599px) {
+  .dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    /* Anchor to the bottom instead of centering (a real <dialog> is
+       already viewport-fixed via the UA stylesheet's `inset: 0`, so a
+       top-only auto margin is enough to push it down). */
+    margin: auto 0 0;
+    border-radius: 20px 20px 0 0;
+    padding: 22px 18px calc(26px + env(safe-area-inset-bottom));
+  }
+}
+
+.header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.eyebrow {
+  align-self: flex-start;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 599px) {
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}
+
+/* Button — shared secondary/primary-* variants used inside dialog actions. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.primaryDark,
+.primaryA,
+.primaryB {
+  border: 1px solid transparent;
+  /* Matches the codebase's existing convention (e.g. app/page.module.css
+     .cta) of reusing --color-surface as the "light text on a colored
+     background" tone, rather than hardcoding white again. */
+  color: var(--color-surface);
+  padding: 0 20px;
+}
+
+.primaryDark {
+  background: var(--color-text);
+  border-color: var(--color-text);
+}
+
+.primaryA {
+  background: var(--color-mode-a);
+  border-color: var(--color-mode-a);
+}
+
+.primaryB {
+  background: var(--color-mode-b);
+  border-color: var(--color-mode-b);
+}

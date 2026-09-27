@@ -1,0 +1,76 @@
+/* EPIC 2 toast (design/01_PC.html lines 596-605 + layout constants `L`
+   around line 905-950: toastBottom PC 32 / tablet+mobile 108 — so it clears
+   the sticky bottom action bar on the narrower breakpoints; toastW 500px,
+   mobile calc(100% - 32px)). Mobile-first: the base rule below already
+   matches mobile+tablet's bottom offset, so only the two min-width tiers
+   need to override anything. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 108px;
+  z-index: 15;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px 10px 18px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(28, 27, 24, 0.3);
+}
+
+@media (min-width: 600px) {
+  .toast {
+    width: 500px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .toast {
+    bottom: 32px;
+  }
+}
+
+.icon {
+  flex: none;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.45;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font-size: 12px;
+  /* Mockup's dimmer toast-detail tone (design/01_PC.html:601) — no
+     existing token is this light-on-dark shade. */
+  color: #cfc9bd;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-bg);
+  cursor: pointer;
+}

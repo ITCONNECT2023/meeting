@@ -184,6 +184,26 @@ export function LockIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
   );
 }
 
+// EPIC 2: the plain "×" used by chip remove buttons, Dialog's close button
+// and Toast's close button (design/*.html — same path reused at every size).
+export function CloseIcon({ size = 20, strokeWidth = 2 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 export function AlertCircleIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
   return (
     <svg
