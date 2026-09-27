@@ -13,6 +13,7 @@ next-env.d.ts
 
 # local data (this project's own runtime/dev data, not env)
 .local-data/
+.workflow-data/
 
 # test artifacts
 playwright-report/

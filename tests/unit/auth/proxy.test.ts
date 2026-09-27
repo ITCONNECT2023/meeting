@@ -88,6 +88,12 @@ describe("proxy: without a cookie", () => {
     );
   });
 
+  it("passes through workflow internal endpoints without a cookie", () => {
+    expect(isPassThrough(proxy(request("/.well-known/workflow/v1/flow", { method: "POST" })))).toBe(
+      true,
+    );
+  });
+
   it.each([
     "/login",
     "/_next/static/chunks/app.js",

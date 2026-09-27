@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 
 // EPIC 1-6: Next 16 blocks cross-origin requests to the dev server by
 // default, so a phone/tablet on the same LAN can't use `npm run dev`
@@ -15,4 +16,4 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: privateLanOrigins,
 };
 
-export default nextConfig;
+export default withWorkflow(nextConfig);

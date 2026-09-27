@@ -68,11 +68,15 @@ function deny(request: NextRequest): NextResponse {
   return response;
 }
 
+function isWorkflowPath(pathname: string): boolean {
+  return pathname.startsWith("/.well-known/workflow/");
+}
+
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const method = request.method;
 
-  if (isStaticAsset(pathname)) return NextResponse.next();
+  if (isStaticAsset(pathname) || isWorkflowPath(pathname)) return NextResponse.next();
 
   if (pathname === LOGIN_PATH && (method === "GET" || method === "HEAD")) {
     return NextResponse.next();
