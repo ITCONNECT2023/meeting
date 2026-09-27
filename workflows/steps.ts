@@ -1,5 +1,6 @@
 import { transcribeAudio } from "@/lib/ai/transcribe";
 import { writeMeetingMinutes } from "@/lib/ai/write-minutes";
+import { maskMinutes, maskScript } from "@/lib/privacy/mask";
 import { getStorage } from "@/lib/storage";
 import { getJob, updateJob } from "@/lib/store/jobs";
 import type { JobRecord, MeetingMinutes, ScriptLine } from "@/lib/minutes/types";
@@ -46,13 +47,19 @@ export async function stepTranscribeAudio(
   audioPath: string,
   fileName: string,
   attendees?: string[],
-): Promise<{ script: ScriptLine[]; durationSeconds: number }> {
+): Promise<{ script: ScriptLine[]; durationSeconds: number; maskedCount: number }> {
   "use step";
-  return transcribeAudio({
+  const result = await transcribeAudio({
     filePath: audioPath,
     fileName,
     attendees,
   });
+  const { script: maskedScript, count: maskedCount } = maskScript(result.script);
+  return {
+    ...result,
+    script: maskedScript,
+    maskedCount,
+  };
 }
 
 export async function stepVerifyTranscript(
@@ -126,13 +133,17 @@ export async function stepVerifyMinutes(
 export async function stepSaveMinutesToJob(
   jobId: string,
   minutes: MeetingMinutes,
+  transcribeMaskedCount?: number,
 ): Promise<void> {
   "use step";
   const job = await getJob(jobId);
   if (!job) return;
+  const { minutes: maskedMinutes, count: minutesMaskedCount } = maskMinutes(minutes);
+  const totalMasked = (transcribeMaskedCount ?? 0) + minutesMaskedCount;
   await updateJob(jobId, {
     status: "review",
-    minutes,
+    minutes: maskedMinutes,
+    maskedCount: totalMasked,
     steps: {
       ...job.steps,
       minutes: {

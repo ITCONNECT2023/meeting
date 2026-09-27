@@ -48,7 +48,7 @@ test.describe("EPIC 3: 올리기부터 처리까지 흐름", () => {
     ).toBeVisible({ timeout: 15000 });
 
     // Minutes content rendered
-    await expect(page.getByText("신규 기능 출시 일정 회의")).toBeVisible();
+    await expect(page.getByRole("article").getByText("신규 기능 출시 일정 회의", { exact: true })).toBeVisible();
     await expect(page.getByRole("article").getByText("김민수", { exact: false }).first()).toBeVisible();
   });
 

@@ -150,10 +150,19 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
       <>
         <Header mode={mode} showHome onHome={handleHome} />
         <main className={styles.screen}>
-          <ReviewScreen minutes={state.job.minutes} />
+          <ReviewScreen
+            job={state.job}
+            onHome={handleHome}
+            onSendMail={() => {
+              // EPIC 7 will wire actual mail send confirmation dialog
+            }}
+          />
         </main>
         <Dialog open={dialog === "leave"} onClose={closeDialog} title="처음 화면으로 갈까요?">
-          <p>고른 녹음 파일과 입력한 회의 정보, 받는 주소가 모두 지워집니다.</p>
+          <p>
+            회의록은 서비스에 보관되지 않습니다. 메일을 보내거나 .md 파일로 내려받지 않고 나가면
+            이 회의록을 다시 볼 수 없습니다.
+          </p>
           <DialogActions>
             <Button variant="secondary" autoFocus onClick={closeDialog}>
               머무르기

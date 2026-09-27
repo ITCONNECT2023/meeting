@@ -49,6 +49,7 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
     // Step B & C: Transcribe
     let script: ScriptLine[] = [];
     let durationSeconds = 0;
+    let transcribeMaskedCount = 0;
     try {
       const transcribed = await stepTranscribeAudio(
         audioPrep.audioPath,
@@ -57,6 +58,7 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
       );
       script = transcribed.script;
       durationSeconds = transcribed.durationSeconds;
+      transcribeMaskedCount = transcribed.maskedCount ?? 0;
       await stepVerifyTranscript(script);
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
@@ -92,7 +94,7 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
     }
 
     // Step G: Save minutes & update status to review
-    await stepSaveMinutesToJob(jobId, minutesResult.minutes);
+    await stepSaveMinutesToJob(jobId, minutesResult.minutes, transcribeMaskedCount);
 
     return { ok: true, jobId };
   } catch (error: unknown) {
