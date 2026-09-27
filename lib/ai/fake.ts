@@ -49,6 +49,17 @@ export async function fakeTranscribe(input: TranscribeInput): Promise<Transcribe
     (error as { code?: string }).code = "TRANSCRIBE_FAILED";
     throw error;
   }
+  if (input.fileName.includes("corrupt")) {
+    const error = new Error("녹음을 읽을 수 없습니다. 파일이 손상되었을 수 있습니다. 다른 파일로 다시 올려 주세요.");
+    (error as { code?: string }).code = "FILE_CORRUPT";
+    throw error;
+  }
+  if (input.fileName.includes("silent")) {
+    return {
+      script: [],
+      durationSeconds: 0,
+    };
+  }
 
   // Return the standard example script
   return {
