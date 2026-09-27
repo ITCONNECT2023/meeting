@@ -603,6 +603,13 @@ export function useUploadForm(initialMode: UploadMode) {
     });
   }, []);
 
+  const updateJob = useCallback((updatedJob: JobRecord) => {
+    dispatch({
+      type: "JOB_UPDATE",
+      job: updatedJob,
+    });
+  }, []);
+
   return {
     state,
     pickFile,
@@ -620,5 +627,6 @@ export function useUploadForm(initialMode: UploadMode) {
     retry,
     cancelAndHome,
     updateJobMinutes,
+    updateJob,
   };
 }

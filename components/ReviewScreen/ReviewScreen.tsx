@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import type { JobRecord, MeetingMinutes } from "@/lib/minutes/types";
+import { useState, useEffect } from "react";
+import type { JobRecord, MeetingMinutes, RecipientResult } from "@/lib/minutes/types";
 import { formatMinutesFilename, formatMailSubject } from "@/lib/minutes/filename";
 import {
+  AlertCircleIcon,
+  CheckCircleIcon,
   CloseIcon,
   DownloadIcon,
   EditIcon,
@@ -13,6 +15,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { Dialog, DialogActions, Button } from "@/components/Dialog/Dialog";
 import styles from "./ReviewScreen.module.css";
 
 interface ReviewScreenProps {
@@ -20,6 +23,7 @@ interface ReviewScreenProps {
   onHome: () => void;
   onSendMail?: () => void;
   onUpdateJobMinutes?: (minutes: MeetingMinutes, maskedCount?: number) => void;
+  onJobSent?: (job: JobRecord) => void;
 }
 
 type EditSection = "meta" | "summary" | "decisions" | "todos" | null;
@@ -29,11 +33,70 @@ export function ReviewScreen({
   onHome,
   onSendMail,
   onUpdateJobMinutes,
+  onJobSent,
 }: ReviewScreenProps) {
   const [downloadToastOpen, setDownloadToastOpen] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
   const [overrideMinutes, setOverrideMinutes] = useState<MeetingMinutes | null>(null);
   const minutes = overrideMinutes ?? job.minutes!;
+
+  // Send & Status states (EPIC 7)
+  const [currentStatus, setCurrentStatus] = useState<string>(job.status);
+  const [recipientResults, setRecipientResults] = useState<RecipientResult[]>(
+    job.recipientResults || []
+  );
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const isDone = currentStatus === "sent";
+
+  // Poll for bounce / status updates while in done screen with pending recipients
+  useEffect(() => {
+    if (!isDone) return;
+    const hasPending = recipientResults.some((r) => r.status === "pending");
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${job.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.job?.recipientResults) {
+            setRecipientResults(data.job.recipientResults);
+          }
+        }
+      } catch {
+        // ignore polling error
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isDone, recipientResults, job.id]);
+
+  // Prevent browser back from returning to review screen once done (TRD 2-5, DEV 7-5)
+  useEffect(() => {
+    if (!isDone) return;
+    try {
+      window.history.pushState(window.history.state, "", window.location.href);
+    } catch {
+      // ignore
+    }
+
+    const handlePopState = () => {
+      try {
+        window.history.pushState(window.history.state, "", window.location.href);
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isDone]);
 
   // Section editing state
   const [editingSection, setEditingSection] = useState<EditSection>(null);
@@ -185,6 +248,90 @@ export function ReviewScreen({
     }
   }
 
+  function handleOpenSendModal() {
+    if (editingSection !== null) return;
+    if (onSendMail) {
+      onSendMail();
+      return;
+    }
+    setSendError(null);
+    setIsSendModalOpen(true);
+  }
+
+  function handleCloseSendModal() {
+    if (isSending) return;
+    setIsSendModalOpen(false);
+  }
+
+  async function handleConfirmSend() {
+    if (isSending) return;
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setSendError(
+          errData.message || "메일을 보내지 못했습니다. 잠시 뒤 다시 보내 주세요."
+        );
+        setIsSendModalOpen(false);
+        setIsSending(false);
+        return;
+      }
+
+      const data = await res.json();
+      setIsSendModalOpen(false);
+      setIsSending(false);
+      window.history.replaceState(null, "", window.location.href);
+      setCurrentStatus("sent");
+      const nextResults = data.recipientResults || [];
+      setRecipientResults(nextResults);
+      onJobSent?.({
+        ...job,
+        status: "sent",
+        recipientResults: nextResults,
+      });
+    } catch {
+      setIsSending(false);
+      setIsSendModalOpen(false);
+      setSendError("메일을 보내지 못했습니다. 잠시 뒤 다시 보내 주세요.");
+    }
+  }
+
+  async function handleRetrySend() {
+    if (isRetrying) return;
+    setIsRetrying(true);
+
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retry: true }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.recipientResults) {
+          setRecipientResults(data.recipientResults);
+          onJobSent?.({
+            ...job,
+            recipientResults: data.recipientResults,
+          });
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
   if (isExpired) {
     return (
       <div className={styles.expiredContainer}>
@@ -198,17 +345,136 @@ export function ReviewScreen({
     );
   }
 
-  const canEdit = editingSection === null;
+  const canEdit = !isDone && editingSection === null;
+  const failedRecipients = recipientResults.filter((r) => r.status === "failed");
+  const hasFailures = failedRecipients.length > 0;
+
+  function renderRecipientListItems() {
+    if (recipients.length === 0) return null;
+
+    if (!isDone) {
+      return (
+        <ul className={styles.rcpPills}>
+          {recipients.map((r) => (
+            <li key={r} className={styles.rcpPill}>
+              {r}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+        {recipients.map((r) => {
+          const res = recipientResults.find((item) => item.email.toLowerCase() === r.toLowerCase());
+          const status = res?.status || "pending";
+          let badgeText = "확인 중";
+          let badgeClass = styles.statusBadgePending;
+
+          if (status === "sent") {
+            badgeText = "보냄";
+            badgeClass = styles.statusBadgeSent;
+          } else if (status === "failed") {
+            badgeText = res?.errorReason ? `보내지 못함 (${res.errorReason})` : "보내지 못함";
+            badgeClass = styles.statusBadgeFailed;
+          }
+
+          return (
+            <li key={r} className={styles.rcpItemWithStatus}>
+              <span>{r}</span>
+              <span className={`${styles.statusBadge} ${badgeClass}`}>{badgeText}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  function renderAsideRecipientListItems() {
+    if (recipients.length === 0) return null;
+
+    if (!isDone) {
+      return (
+        <ul className={styles.asideRcpList}>
+          {recipients.map((r) => (
+            <li key={r} className={styles.asideRcpItem}>
+              {r}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+        {recipients.map((r) => {
+          const res = recipientResults.find((item) => item.email.toLowerCase() === r.toLowerCase());
+          const status = res?.status || "pending";
+          let badgeText = "확인 중";
+          let badgeClass = styles.statusBadgePending;
+
+          if (status === "sent") {
+            badgeText = "보냄";
+            badgeClass = styles.statusBadgeSent;
+          } else if (status === "failed") {
+            badgeText = res?.errorReason ? `보내지 못함 (${res.errorReason})` : "보내지 못함";
+            badgeClass = styles.statusBadgeFailed;
+          }
+
+          return (
+            <li key={r} className={styles.rcpItemWithStatus}>
+              <span>{r}</span>
+              <span className={`${styles.statusBadge} ${badgeClass}`}>{badgeText}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
 
   return (
     <div className={styles.container}>
-      <div className={styles.intro}>
-        <h1 className={styles.title}>회의록을 확인하고, 필요하면 고친 뒤 보내세요</h1>
-        <p className={styles.lead}>
-          제목부터 할 일까지 고칠 수 있습니다. 전체 스크립트는 녹음 근거로 남겨 두기 때문에
-          고칠 수 없습니다. 직접 고친 내용은 검토자 책임으로 봅니다.
-        </p>
-      </div>
+      {/* Intro or Sent Result Banner */}
+      {isDone ? (
+        hasFailures ? (
+          <div className={styles.sentBannerWarn}>
+            <span className={styles.sentBannerIconWarn}>
+              <AlertCircleIcon size={28} strokeWidth={1.8} />
+            </span>
+            <div className={styles.sentBannerContent}>
+              <h1 className={styles.sentBannerTitle}>
+                {rcpCount}명 중 {failedRecipients.length}명에게 보내지 못했습니다
+              </h1>
+              <p className={styles.sentBannerTextWarn}>
+                일부 주소로 메일을 보내지 못했습니다. 실패한 주소를 확인하고 다시 보내 보세요.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.sentBanner}>
+            <span className={styles.sentBannerIcon}>
+              <CheckCircleIcon size={28} strokeWidth={1.8} />
+            </span>
+            <div className={styles.sentBannerContent}>
+              <h1 className={styles.sentBannerTitle}>메일을 보냈습니다</h1>
+              <p className={styles.sentBannerText}>
+                검토한 회의록을 받는 사람 {rcpCount}명에게 보냈습니다. 화면에서 고친 내용이 본문과 첨부 파일에 그대로 들어갔습니다.
+              </p>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className={styles.intro}>
+          <h1 className={styles.title}>회의록을 확인하고, 필요하면 고친 뒤 보내세요</h1>
+          <p className={styles.lead}>
+            제목부터 할 일까지 고칠 수 있습니다. 전체 스크립트는 녹음 근거로 남겨 두기 때문에
+            고칠 수 없습니다. 직접 고친 내용은 검토자 책임으로 봅니다.
+          </p>
+        </div>
+      )}
+
+      {sendError && <div className={styles.sendErrorAlert}>{sendError}</div>}
 
       <div className={styles.layout}>
         <div className={styles.mainCol}>
@@ -216,18 +482,12 @@ export function ReviewScreen({
           <div className={styles.topMailBox}>
             <div className={styles.topMailHead}>
               <MailIcon size={18} strokeWidth={1.8} />
-              <span>보낼 곳</span>
-              <span className={styles.topMailCount}>받는 사람 {rcpCount}명</span>
+              <span>{isDone ? "보낸 곳" : "보낼 곳"}</span>
+              <span className={styles.topMailCount}>
+                {isDone ? `${rcpCount}명` : `받는 사람 ${rcpCount}명`}
+              </span>
             </div>
-            {recipients.length > 0 && (
-              <ul className={styles.rcpPills}>
-                {recipients.map((r) => (
-                  <li key={r} className={styles.rcpPill}>
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {renderRecipientListItems()}
             <dl className={styles.topMailDl}>
               <dt className={styles.topMailDt}>메일 제목</dt>
               <dd className={styles.topMailDd}>{mailSubject}</dd>
@@ -236,6 +496,16 @@ export function ReviewScreen({
                 <code className={styles.tsTag}>{fileName}</code>
               </dd>
             </dl>
+            {isDone && (
+              <>
+                <p className={styles.asideNote} style={{ margin: "4px 0 0" }}>
+                  회의록은 서비스에 보관되지 않습니다. 이 화면을 나가면 다시 볼 수 없으니, 필요하면 지금 내려받으세요.
+                </p>
+                <p className={styles.twoMinuteNotice}>
+                  보낸 뒤 2분이 지나 반송되면 표시되지 않을 수 있습니다.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Article: 회의록 본문 */}
@@ -840,19 +1110,11 @@ export function ReviewScreen({
           <div className={styles.asideCard}>
             <h2 className={styles.asideTitle}>
               <MailIcon size={18} strokeWidth={1.8} />
-              <span>보낼 곳</span>
+              <span>{isDone ? "보낸 곳" : "보낼 곳"}</span>
               <span style={{ fontWeight: 500, color: "#5E5A52" }}>{rcpCount}명</span>
             </h2>
-            {recipients.length > 0 && (
-              <ul className={styles.asideRcpList}>
-                {recipients.map((r) => (
-                  <li key={r} className={styles.asideRcpItem}>
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className={styles.asideNote}>올릴 때 입력한 주소입니다.</p>
+            {renderAsideRecipientListItems()}
+            {!isDone && <p className={styles.asideNote}>올릴 때 입력한 주소입니다.</p>}
           </div>
 
           <div className={styles.asideCard}>
@@ -877,53 +1139,128 @@ export function ReviewScreen({
             </dl>
           </div>
 
-          <button
-            type="button"
-            onClick={onSendMail}
-            disabled={!canEdit}
-            className={`${styles.sendButton} ${!canEdit ? styles.sendButtonDisabled : ""}`}
-          >
-            <MailIcon size={20} strokeWidth={1.8} />
-            <span>메일 보내기</span>
-          </button>
-          {!canEdit && (
-            <p className={styles.sendWarning}>고치는 중인 항목을 먼저 적용하거나 취소하세요.</p>
+          {!isDone ? (
+            <>
+              <button
+                type="button"
+                onClick={handleOpenSendModal}
+                disabled={!canEdit}
+                className={`${styles.sendButton} ${!canEdit ? styles.sendButtonDisabled : ""}`}
+              >
+                <MailIcon size={20} strokeWidth={1.8} />
+                <span>메일 보내기</span>
+              </button>
+              {!canEdit && (
+                <p className={styles.sendWarning}>
+                  고치는 중인 항목을 먼저 적용하거나 취소하세요.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleDownload}
+                className={styles.downloadButton}
+              >
+                <DownloadIcon size={20} strokeWidth={1.8} />
+                <span>.md 내려받기</span>
+              </button>
+            </>
+          ) : (
+            <>
+              {hasFailures && (
+                <button
+                  type="button"
+                  onClick={handleRetrySend}
+                  disabled={isRetrying}
+                  className={styles.retrySendButton}
+                >
+                  <span>{isRetrying ? "다시 보내는 중..." : "실패한 주소에 다시 보내기"}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDownload}
+                className={styles.downloadButtonDone}
+              >
+                <DownloadIcon size={20} strokeWidth={1.8} />
+                <span>.md 내려받기</span>
+              </button>
+              <button
+                type="button"
+                onClick={onHome}
+                className={styles.newMinutesButton}
+              >
+                <span>새 회의록 만들기</span>
+              </button>
+              <p className={styles.asideNote}>
+                회의록은 서비스에 보관되지 않습니다. 이 화면을 나가면 다시 볼 수 없으니, 필요하면 지금 내려받으세요.
+              </p>
+              <p className={styles.twoMinuteNotice}>
+                보낸 뒤 2분이 지나 반송되면 표시되지 않을 수 있습니다.
+              </p>
+            </>
           )}
-
-          <button
-            type="button"
-            onClick={handleDownload}
-            className={styles.downloadButton}
-          >
-            <DownloadIcon size={20} strokeWidth={1.8} />
-            <span>.md 내려받기</span>
-          </button>
         </aside>
       </div>
 
       {/* Tablet & Mobile Bottom Fixed Bar */}
       <div className={styles.bottomFixedBar}>
-        {!canEdit && (
+        {!canEdit && !isDone && (
           <p className={styles.barEditWarning}>고치는 중인 항목을 먼저 적용하거나 취소하세요.</p>
         )}
-        <div style={{ display: "flex", gap: 10, width: "100%" }}>
-          <button
-            type="button"
-            onClick={handleDownload}
-            className={styles.barDownloadBtn}
-          >
-            <DownloadIcon size={20} strokeWidth={1.8} />
-            <span>.md 내려받기</span>
-          </button>
-          <button
-            type="button"
-            onClick={onSendMail}
-            disabled={!canEdit}
-            className={`${styles.barSendBtn} ${!canEdit ? styles.sendButtonDisabled : ""}`}
-          >
-            <MailIcon size={20} strokeWidth={1.8} />
-            <span>메일 보내기</span>
-          </button>
+        <div style={{ display: "flex", gap: 10, width: "100%", flexDirection: isDone && hasFailures ? "column" : "row" }}>
+          {!isDone ? (
+            <>
+              <button
+                type="button"
+                onClick={handleDownload}
+                className={styles.barDownloadBtn}
+              >
+                <DownloadIcon size={20} strokeWidth={1.8} />
+                <span>.md 내려받기</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenSendModal}
+                disabled={!canEdit}
+                className={`${styles.barSendBtn} ${!canEdit ? styles.sendButtonDisabled : ""}`}
+              >
+                <MailIcon size={20} strokeWidth={1.8} />
+                <span>메일 보내기</span>
+              </button>
+            </>
+          ) : (
+            <>
+              {hasFailures && (
+                <button
+                  type="button"
+                  onClick={handleRetrySend}
+                  disabled={isRetrying}
+                  className={styles.retrySendButton}
+                >
+                  <span>{isRetrying ? "다시 보내는 중..." : "실패한 주소에 다시 보내기"}</span>
+                </button>
+              )}
+              <div style={{ display: "flex", gap: 10, width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={onHome}
+                  className={styles.newMinutesButton}
+                  style={{ flex: 1 }}
+                >
+                  <span>새 회의록</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className={styles.downloadButtonDone}
+                  style={{ flex: 1 }}
+                >
+                  <DownloadIcon size={20} strokeWidth={1.8} />
+                  <span>.md 내려받기</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -945,6 +1282,54 @@ export function ReviewScreen({
           </button>
         </div>
       )}
+
+      {/* Send Confirmation Dialog (FRD F10 §8-3) */}
+      <Dialog
+        open={isSendModalOpen}
+        onClose={handleCloseSendModal}
+        title="이 내용으로 메일을 보낼까요?"
+        eyebrow={<span className={styles.dialogEyebrowA}>검토 후 보내기</span>}
+      >
+        <dl className={styles.sendDl}>
+          <dt style={{ color: "#5E5A52" }}>받는 사람</dt>
+          <dd style={{ margin: 0 }}>
+            <ul className={styles.sendRcpList}>
+              {recipients.map((r) => (
+                <li key={r} className={styles.sendRcpChip}>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </dd>
+          <dt style={{ color: "#5E5A52" }}>메일 제목</dt>
+          <dd className={styles.sendDlBold}>{mailSubject}</dd>
+          <dt style={{ color: "#5E5A52" }}>본문</dt>
+          <dd style={{ margin: 0 }}>
+            제목, 일시, 참석자, 요약, 결정사항, 할 일
+            <br />
+            전체 스크립트는 본문에 넣지 않습니다.
+          </dd>
+          <dt style={{ color: "#5E5A52" }}>첨부</dt>
+          <dd style={{ margin: 0 }}>
+            <code className={styles.tsTag}>{fileName}</code>
+            <br />
+            화면에서 내려받는 파일과 같습니다.
+          </dd>
+        </dl>
+        <p className={styles.sendNoticeA}>
+          <AlertCircleIcon size={18} strokeWidth={1.8} />
+          <span>화면에서 고친 내용이 메일 본문과 첨부 파일에 그대로 들어갑니다.</span>
+        </p>
+        <DialogActions>
+          <Button variant="secondary" onClick={handleCloseSendModal} disabled={isSending}>
+            취소
+          </Button>
+          <Button variant="primary-a" onClick={handleConfirmSend} disabled={isSending}>
+            <MailIcon size={18} strokeWidth={1.8} />
+            <span>{isSending ? "보내는 중..." : "보내기"}</span>
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -1022,3 +1022,257 @@
   color: var(--color-text-subtle, #5e5a52);
 }
 
+/* EPIC 7: Send Confirm Dialog styles */
+.dialogEyebrowA {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #e8edf8;
+  color: #1e3a7e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sendDl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 12px 14px;
+  font-size: 14px;
+}
+
+@media (max-width: 599px) {
+  .sendDl {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+.sendDlBold {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.sendRcpList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sendRcpChip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f1efe9;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.sendNoticeA {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #e8edf8;
+  color: #1e3a7e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.sendErrorAlert {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #fce8e6;
+  border: 1px solid #f5c2c0;
+  color: #b3261e;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* EPIC 7: Sent / Done Screen Banners */
+.sentBanner {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: #e6f1ea;
+  border: 1px solid #bcd9c6;
+  margin-bottom: 20px;
+}
+
+.sentBannerWarn {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: #fbede3;
+  border: 1px solid #edc3a6;
+  margin-bottom: 20px;
+}
+
+.sentBannerIcon {
+  flex: none;
+  color: #2f6b43;
+  margin-top: 2px;
+}
+
+.sentBannerIconWarn {
+  flex: none;
+  color: #b84e17;
+  margin-top: 2px;
+}
+
+.sentBannerContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sentBannerTitle {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text, #1c1b18);
+}
+
+.sentBannerText {
+  margin: 0;
+  font-size: 15px;
+  color: #2a4a33;
+}
+
+.sentBannerTextWarn {
+  margin: 0;
+  font-size: 15px;
+  color: #6e2f0c;
+}
+
+/* Recipient item with status */
+.rcpItemWithStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f4f2ec;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+
+.statusBadgePending {
+  background: #efece5;
+  color: #5e5a52;
+}
+
+.statusBadgeSent {
+  background: #e6f1ea;
+  color: #2f6b43;
+}
+
+.statusBadgeFailed {
+  background: #fce8e6;
+  color: #b3261e;
+}
+
+/* Action buttons on Done screen */
+.downloadButtonDone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 1px solid #1c1b18;
+  border-radius: 12px;
+  background: #1c1b18;
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.downloadButtonDone:hover {
+  opacity: 0.9;
+}
+
+.newMinutesButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--color-input-border, #c9c3b6);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--color-text, #1c1b18);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.newMinutesButton:hover {
+  background: var(--color-bg-page, #f7f6f2);
+}
+
+.retrySendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--color-error, #b3261e);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--color-error, #b3261e);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retrySendButton:hover {
+  background: #fdf3f2;
+}
+
+.twoMinuteNotice {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8a857a;
+}
+

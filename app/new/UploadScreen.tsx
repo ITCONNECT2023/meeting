@@ -60,6 +60,7 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     retry,
     cancelAndHome,
     updateJobMinutes,
+    updateJob,
   } = useUploadForm(initialMode);
 
   const fileSectionRef = useRef<HTMLElement>(null);
@@ -147,6 +148,8 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
   }
 
   if (state.screen === "review" && state.job?.minutes) {
+    const isJobSent = state.job.status === "sent";
+
     return (
       <>
         <Header mode={mode} showHome onHome={handleHome} />
@@ -155,15 +158,14 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
             job={state.job}
             onHome={handleHome}
             onUpdateJobMinutes={updateJobMinutes}
-            onSendMail={() => {
-              // EPIC 7 will wire actual mail send confirmation dialog
-            }}
+            onJobSent={updateJob}
           />
         </main>
         <Dialog open={dialog === "leave"} onClose={closeDialog} title="처음 화면으로 갈까요?">
           <p>
-            회의록은 서비스에 보관되지 않습니다. 메일을 보내거나 .md 파일로 내려받지 않고 나가면
-            이 회의록을 다시 볼 수 없습니다.
+            {isJobSent
+              ? "회의록은 서비스에 보관되지 않습니다. 나간 뒤에는 보낸 메일과 내려받은 파일로만 볼 수 있습니다."
+              : "회의록은 서비스에 보관되지 않습니다. 메일을 보내거나 .md 파일로 내려받지 않고 나가면 이 회의록을 다시 볼 수 없습니다."}
           </p>
           <DialogActions>
             <Button variant="secondary" autoFocus onClick={closeDialog}>

@@ -85,7 +85,12 @@ export async function deleteJob(id: string): Promise<boolean> {
   const existing = await store.get<JobRecord>(jobKey(id));
   await store.del(jobKey(id));
   await store.del(startLockKey(id));
+  await store.del(sendLockKey(id));
   return existing !== null;
+}
+
+function sendLockKey(id: string): string {
+  return `job:lock:send:${id}`;
 }
 
 /**
@@ -97,4 +102,21 @@ export async function lockJobStart(id: string): Promise<boolean> {
   return store.setIfAbsent(startLockKey(id), true, {
     ttlSeconds: getJobTtlSeconds(),
   });
+}
+
+/**
+ * Ensures a job send request is processed only once concurrently.
+ * Returns true if lock acquired, false if send already in progress.
+ */
+export async function lockJobSend(id: string, ttlSeconds: number = 120): Promise<boolean> {
+  const store = getStore();
+  return store.setIfAbsent(sendLockKey(id), true, { ttlSeconds });
+}
+
+/**
+ * Releases the send lock for a job.
+ */
+export async function unlockJobSend(id: string): Promise<void> {
+  const store = getStore();
+  await store.del(sendLockKey(id));
 }
