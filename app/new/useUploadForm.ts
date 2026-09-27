@@ -369,6 +369,7 @@ export function useUploadForm(initialMode: UploadMode) {
             name: file.name,
             size: file.size,
             durationSec: s.fileState?.durationSec ?? null,
+            recordedAt: s.fileState?.recordedAt ?? null,
           },
           meetingInfo: {
             title: s.title.trim() || undefined,

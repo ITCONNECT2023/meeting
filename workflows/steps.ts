@@ -27,7 +27,13 @@ export async function stepUpdateTranscribeStarted(
 
 export async function stepPrepareAudio(
   jobId: string,
-): Promise<{ audioPath: string; fileName: string; attendees?: string[] }> {
+): Promise<{
+  audioPath: string;
+  fileName: string;
+  attendees?: string[];
+  durationSeconds?: number;
+  recordedAt?: string;
+}> {
   "use step";
   const job = await getJob(jobId);
   if (!job) {
@@ -40,19 +46,29 @@ export async function stepPrepareAudio(
     (err as { code?: string }).code = "FILE_CORRUPT";
     throw err;
   }
-  return { audioPath, fileName: job.fileName, attendees: job.inputAttendees };
+  return {
+    audioPath,
+    fileName: job.fileName,
+    attendees: job.inputAttendees,
+    durationSeconds: job.durationSeconds,
+    recordedAt: job.recordedAt,
+  };
 }
 
 export async function stepTranscribeAudio(
   audioPath: string,
   fileName: string,
   attendees?: string[],
+  jobId?: string,
+  durationSeconds?: number,
 ): Promise<{ script: ScriptLine[]; durationSeconds: number; maskedCount: number }> {
   "use step";
   const result = await transcribeAudio({
     filePath: audioPath,
     fileName,
     attendees,
+    jobId,
+    durationSeconds,
   });
   const { script: maskedScript, count: maskedCount } = maskScript(result.script);
   return {
@@ -108,6 +124,8 @@ export async function stepWriteMinutes(
   date?: string,
   attendees?: string[],
   fileName?: string,
+  jobId?: string,
+  recordedAt?: string,
 ): Promise<{ minutes: MeetingMinutes }> {
   "use step";
   return writeMeetingMinutes({
@@ -116,6 +134,8 @@ export async function stepWriteMinutes(
     date,
     attendees,
     fileName,
+    jobId,
+    recordedAt,
   });
 }
 

@@ -12,6 +12,7 @@
     "test:unit": "vitest run",
     "test:store-local": "node scripts/test-store-local.mjs",
     "test:e2e": "playwright test",
+    "test:real": "node scripts/test-real.mjs",
     "check:fast": "npm run lint && npm run typecheck && npm run test:unit",
     "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:e2e",
     "check:external": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-external/main.ts",

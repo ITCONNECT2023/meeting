@@ -300,6 +300,7 @@ export const AudioFileMetaSchema = z
     name: z.string().min(1),
     size: z.number().int().nonnegative(),
     durationSec: z.number().nullable().optional(),
+    recordedAt: z.string().nullable().optional(),
   })
   .superRefine((file, ctx) => {
     const fileCheck = checkPickedFile(file);

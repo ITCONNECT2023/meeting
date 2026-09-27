@@ -4,6 +4,8 @@ export interface TranscribeInput {
   filePath: string;
   fileName: string;
   attendees?: string[];
+  jobId?: string;
+  durationSeconds?: number;
 }
 
 export interface TranscribeOutput {
@@ -17,6 +19,8 @@ export interface WriteMinutesInput {
   date?: string;
   attendees?: string[];
   fileName?: string;
+  jobId?: string;
+  recordedAt?: string;
 }
 
 export interface WriteMinutesOutput {

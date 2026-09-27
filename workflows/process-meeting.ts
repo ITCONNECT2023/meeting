@@ -55,6 +55,8 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
         audioPrep.audioPath,
         audioPrep.fileName,
         audioPrep.attendees,
+        jobId,
+        audioPrep.durationSeconds,
       );
       script = transcribed.script;
       durationSeconds = transcribed.durationSeconds;
@@ -83,6 +85,8 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
         initialJob.inputDate,
         initialJob.inputAttendees,
         initialJob.fileName,
+        jobId,
+        initialJob.recordedAt,
       );
       await stepVerifyMinutes(minutesResult.minutes);
     } catch (e: unknown) {

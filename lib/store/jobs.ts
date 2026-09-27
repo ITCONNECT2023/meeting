@@ -33,6 +33,7 @@ export async function createJob(input: JobInput): Promise<JobRecord> {
     fileName: input.audio.name,
     fileSize: input.audio.size,
     durationSeconds: input.audio.durationSec ?? undefined,
+    recordedAt: input.audio.recordedAt ?? undefined,
     createdAt: now,
     updatedAt: now,
     inputTitle: input.meetingInfo?.title,

@@ -58,6 +58,7 @@ export interface JobRecord {
   fileName: string;
   fileSize: number;
   durationSeconds?: number;
+  recordedAt?: string;
   createdAt: number;
   updatedAt: number;
   audioDeleted?: boolean;
