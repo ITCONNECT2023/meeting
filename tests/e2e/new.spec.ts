@@ -442,7 +442,7 @@ test("B 모드에서 올리기를 누르면 주소 확인 창이 열리고, 「�
   await expect(recipientList(page).locator("li")).toHaveCount(2);
 });
 
-test("B 확인 창에서 「이 주소로 올리고 보내기」를 누르면 창이 닫히고 알림이 뜬다", async ({
+test("B 확인 창에서 「이 주소로 올리고 보내기」를 누르면 창이 닫히고 처리 화면으로 넘어간다", async ({
   page,
 }) => {
   await page.goto("/new?mode=b");
@@ -454,11 +454,9 @@ test("B 확인 창에서 「이 주소로 올리고 보내기」를 누르면 �
   await dialog.getByRole("button", { name: "이 주소로 올리고 보내기" }).click();
   await expect(dialog).toBeHidden();
 
-  const toast = page.getByRole("status");
-  await expect(toast.getByText("입력 확인을 마쳤습니다")).toBeVisible();
-  await expect(
-    toast.getByText("실제 올리기와 발송은 다음 단계에서 연결합니다."),
-  ).toBeVisible();
+  // Transitions to Mode B 4-step processing screen
+  await expect(page.getByText("회의록을 만든 뒤 바로 보냅니다")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("메일 보내기")).toBeVisible();
 });
 
 test("입력칸에만 쓴 주소도 올리기를 누르면 자동으로 추가된다", async ({ page }) => {

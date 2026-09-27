@@ -197,7 +197,7 @@ function reducer(state: UploadFormState, action: Action): UploadFormState {
     case "CLOSE_DIALOG":
       return { ...state, dialog: null };
     case "CONFIRM_B_GO":
-      return { ...state, dialog: null, toastOpen: true };
+      return { ...state, dialog: null };
     case "START_JOB_REQUEST":
       return { ...state, screen: "processing", jobId: null, job: null };
     case "JOB_CREATED":
@@ -351,10 +351,7 @@ export function useUploadForm(initialMode: UploadMode) {
   const openLeaveDialog = useCallback(() => dispatch({ type: "OPEN_DIALOG", dialog: "leave" }), []);
   const closeDialog = useCallback(() => dispatch({ type: "CLOSE_DIALOG" }), []);
   const closeToast = useCallback(() => dispatch({ type: "CLOSE_TOAST" }), []);
-  /** B confirm dialog's 「이 주소로 올리고 보내기」: EPIC 2 stub — closes
-   * the dialog and shows the same toast A's submit shows (EPIC 3 connects
-   * the real upload+send). */
-  const confirmBGo = useCallback(() => dispatch({ type: "CONFIRM_B_GO" }), []);
+  const isStartingRef = useRef(false);
 
   const startJobFlow = useCallback(async (file: File) => {
     dispatch({ type: "START_JOB_REQUEST" });
@@ -427,6 +424,20 @@ export function useUploadForm(initialMode: UploadMode) {
       dispatch({ type: "JOB_ERROR", error: msg });
     }
   }, []);
+
+  /** B confirm dialog's 「이 주소로 올리고 보내기」: closes the dialog and starts the upload/process flow. */
+  const confirmBGo = useCallback(async () => {
+    if (isStartingRef.current) return;
+    const file = stateRef.current.fileState?.file;
+    if (!file) return;
+    isStartingRef.current = true;
+    dispatch({ type: "CLOSE_DIALOG" });
+    try {
+      await startJobFlow(file);
+    } finally {
+      isStartingRef.current = false;
+    }
+  }, [startJobFlow]);
 
   /**
    * F1/F3 올리기 버튼: force-commits both drafts (recipients — FRD's own
@@ -548,17 +559,38 @@ export function useUploadForm(initialMode: UploadMode) {
     if (state.screen !== "processing") return;
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // In Mode B, once upload is completed, do not prevent unload
+      if (state.mode === "b" && state.job?.steps.upload.status === "completed") {
+        return;
+      }
       e.preventDefault();
       e.returnValue = "지금 나가면 만들던 회의록이 사라집니다.";
       return "지금 나가면 만들던 회의록이 사라집니다.";
     };
 
     const onPageHide = () => {
-      if (state.jobId && state.mode === "a") {
+      if (!state.jobId) return;
+      if (state.mode === "a") {
         if (typeof navigator !== "undefined" && navigator.sendBeacon) {
           navigator.sendBeacon(`/api/jobs/${state.jobId}`);
         } else {
           fetch(`/api/jobs/${state.jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
+        }
+      } else if (state.mode === "b") {
+        if (state.job?.steps.upload.status === "completed") {
+          // Upload completed: mark clientLeft
+          if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+            navigator.sendBeacon(`/api/jobs/${state.jobId}?clientLeft=1`);
+          } else {
+            fetch(`/api/jobs/${state.jobId}?clientLeft=1`, { method: "POST", keepalive: true }).catch(() => {});
+          }
+        } else {
+          // Upload not completed: cancel job
+          if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+            navigator.sendBeacon(`/api/jobs/${state.jobId}`);
+          } else {
+            fetch(`/api/jobs/${state.jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
+          }
         }
       }
     };
@@ -570,7 +602,7 @@ export function useUploadForm(initialMode: UploadMode) {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, [state.screen, state.jobId, state.mode]);
+  }, [state.screen, state.jobId, state.mode, state.job?.steps.upload.status]);
 
   const retry = useCallback(() => {
     const file = stateRef.current.fileState?.file;

@@ -1,10 +1,12 @@
 import type { ScriptLine } from "@/lib/minutes/types";
 import {
+  stepCheckClientLeftAndCleanup,
   stepCleanupAudio,
   stepFailJob,
   stepGetJob,
   stepPrepareAudio,
   stepSaveMinutesToJob,
+  stepSendMail,
   stepTranscribeAudio,
   stepUpdateMinutesStarted,
   stepUpdateTranscribeStarted,
@@ -97,8 +99,13 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
       return { ok: false, jobId, error: code, errorMessage: msg };
     }
 
-    // Step G: Save minutes & update status to review
+    // Step G: Save minutes & update status to review (or processing + send running for Mode B)
     await stepSaveMinutesToJob(jobId, minutesResult.minutes, transcribeMaskedCount);
+
+    if (initialJob.mode === "B") {
+      await stepSendMail(jobId);
+      await stepCheckClientLeftAndCleanup(jobId);
+    }
 
     return { ok: true, jobId };
   } catch (error: unknown) {

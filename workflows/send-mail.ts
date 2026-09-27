@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getJob, updateJob, lockJobSend, unlockJobSend } from "@/lib/store/jobs";
+import { getJob, updateJob, deleteJob, lockJobSend, unlockJobSend } from "@/lib/store/jobs";
 import { renderEmail } from "@/lib/minutes/render-email";
 import { sendEmail } from "@/lib/mail/smtp";
 import { checkBouncesForJob } from "@/lib/mail/bounce";
@@ -115,6 +115,40 @@ export async function executeSendWorkflow(
         ],
       });
     } catch (smtpErr: unknown) {
+      if (job.mode === "B") {
+        const mergedResults: RecipientResult[] = [...existingResults];
+        for (const email of targetRecipients) {
+          const idx = mergedResults.findIndex(
+            (r) => r.email.toLowerCase() === email.toLowerCase()
+          );
+          const item: RecipientResult = {
+            email,
+            status: "failed",
+            errorReason: "서비스 일시 장애",
+          };
+          if (idx >= 0) {
+            mergedResults[idx] = item;
+          } else {
+            mergedResults.push(item);
+          }
+        }
+        const updatedJob = await updateJob(jobId, {
+          status: "sent",
+          recipientResults: mergedResults,
+          steps: {
+            ...job.steps,
+            send: { status: "completed", completedAt: Date.now() },
+          },
+        });
+        await unlockJobSend(jobId);
+        return {
+          ok: false,
+          job: updatedJob || job,
+          recipientResults: mergedResults,
+          error: "메일을 보내지 못했습니다.",
+        };
+      }
+
       // Gmail refused outright (접수 거절) -> Stay on review screen for Mode A
       await unlockJobSend(jobId);
       const msg = smtpErr instanceof Error ? smtpErr.message : String(smtpErr);
@@ -186,6 +220,10 @@ export async function executeSendWorkflow(
           recipientResults: finalized,
         });
       } finally {
+        const checkJob = await getJob(jobId);
+        if (checkJob?.clientLeft) {
+          await deleteJob(jobId);
+        }
         await unlockJobSend(jobId);
       }
     };

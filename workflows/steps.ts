@@ -2,7 +2,8 @@ import { transcribeAudio } from "@/lib/ai/transcribe";
 import { writeMeetingMinutes } from "@/lib/ai/write-minutes";
 import { maskMinutes, maskScript } from "@/lib/privacy/mask";
 import { getStorage } from "@/lib/storage";
-import { getJob, updateJob } from "@/lib/store/jobs";
+import { deleteJob, getJob, updateJob } from "@/lib/store/jobs";
+import { executeSendWorkflow } from "./send-mail";
 import type { JobRecord, MeetingMinutes, ScriptLine } from "@/lib/minutes/types";
 
 export async function stepGetJob(jobId: string): Promise<JobRecord | null> {
@@ -160,8 +161,9 @@ export async function stepSaveMinutesToJob(
   if (!job) return;
   const { minutes: maskedMinutes, count: minutesMaskedCount } = maskMinutes(minutes);
   const totalMasked = (transcribeMaskedCount ?? 0) + minutesMaskedCount;
+  const isModeB = job.mode === "B";
   await updateJob(jobId, {
-    status: "review",
+    status: isModeB ? "processing" : "review",
     minutes: maskedMinutes,
     maskedCount: totalMasked,
     steps: {
@@ -171,6 +173,14 @@ export async function stepSaveMinutesToJob(
         startedAt: job.steps.minutes?.startedAt ?? Date.now(),
         completedAt: Date.now(),
       },
+      ...(isModeB
+        ? {
+            send: {
+              status: "running",
+              startedAt: Date.now(),
+            },
+          }
+        : {}),
     },
   });
 }
@@ -200,4 +210,21 @@ export async function stepFailJob(
       },
     },
   });
+}
+
+export async function stepSendMail(jobId: string): Promise<void> {
+  "use step";
+  try {
+    await executeSendWorkflow(jobId);
+  } catch (sendErr: unknown) {
+    console.error(`Mode B automatic send error for job ${jobId}:`, sendErr);
+  }
+}
+
+export async function stepCheckClientLeftAndCleanup(jobId: string): Promise<void> {
+  "use step";
+  const checkJob = await getJob(jobId);
+  if (checkJob?.clientLeft) {
+    await deleteJob(jobId);
+  }
 }

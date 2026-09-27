@@ -447,7 +447,9 @@ export function ReviewScreen({
                 {rcpCount}명 중 {failedRecipients.length}명에게 보내지 못했습니다
               </h1>
               <p className={styles.sentBannerTextWarn}>
-                일부 주소로 메일을 보내지 못했습니다. 실패한 주소를 확인하고 다시 보내 보세요.
+                {rcpCount === failedRecipients.length
+                  ? "메일을 보내지 못했습니다. 실패한 주소를 확인하고 다시 보내 보세요."
+                  : "일부 주소로 메일을 보내지 못했습니다. 실패한 주소를 확인하고 다시 보내 보세요."}
               </p>
             </div>
           </div>
@@ -457,9 +459,13 @@ export function ReviewScreen({
               <CheckCircleIcon size={28} strokeWidth={1.8} />
             </span>
             <div className={styles.sentBannerContent}>
-              <h1 className={styles.sentBannerTitle}>메일을 보냈습니다</h1>
+              <h1 className={styles.sentBannerTitle}>
+                {job.mode === "B" ? "검토 없이 바로 보냈습니다" : "메일을 보냈습니다"}
+              </h1>
               <p className={styles.sentBannerText}>
-                검토한 회의록을 받는 사람 {rcpCount}명에게 보냈습니다. 화면에서 고친 내용이 본문과 첨부 파일에 그대로 들어갔습니다.
+                {job.mode === "B"
+                  ? `회의록을 받는 사람 ${rcpCount}명에게 검토 없이 바로 보냈습니다.`
+                  : `검토한 회의록을 받는 사람 ${rcpCount}명에게 보냈습니다. 화면에서 고친 내용이 본문과 첨부 파일에 그대로 들어갔습니다.`}
               </p>
             </div>
           </div>

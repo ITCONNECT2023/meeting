@@ -6,7 +6,7 @@
 // 110-250 (form), 568-578 (bottom bar), 607-700 (dialogs).
 
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { ChipInput } from "@/components/ChipInput/ChipInput";
 import { Button, Dialog, DialogActions } from "@/components/Dialog/Dialog";
@@ -81,6 +81,13 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     dialog,
     toastOpen,
   } = state;
+
+  const [confirmBDisabled, setConfirmBDisabled] = useState(false);
+
+  function handleCloseConfirmB() {
+    setConfirmBDisabled(false);
+    closeDialog();
+  }
 
   const isA = mode === "a";
   const recipientCount = recipients.length;
@@ -465,7 +472,7 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
 
       <Dialog
         open={dialog === "confirmB"}
-        onClose={closeDialog}
+        onClose={handleCloseConfirmB}
         eyebrow={<span className={styles.confirmBEyebrow}>바로 보내기 · 검토 없이 발송</span>}
         title="올리기 전에 받는 주소를 확인하세요"
       >
@@ -491,10 +498,17 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
           <dd>본문에 요약 · 결정사항 · 할 일, 전체 회의록 .md 파일 첨부</dd>
         </dl>
         <DialogActions>
-          <Button variant="secondary" autoFocus onClick={closeDialog}>
+          <Button variant="secondary" autoFocus onClick={handleCloseConfirmB}>
             주소 고치기
           </Button>
-          <Button variant="primary-b" onClick={confirmBGo}>
+          <Button
+            variant="primary-b"
+            disabled={confirmBDisabled}
+            onClick={() => {
+              setConfirmBDisabled(true);
+              void confirmBGo();
+            }}
+          >
             이 주소로 올리고 보내기
           </Button>
         </DialogActions>
