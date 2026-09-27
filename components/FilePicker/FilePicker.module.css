@@ -1,0 +1,202 @@
+/* EPIC 2-2: F1 file-picking region — sizes/colors/radii lifted from
+   design/01_PC.html lines ~128-157 (shared by all three breakpoints; only
+   the drop-zone text and the 다른 파일 button differ, both switched with
+   plain @media queries below so server/client markup never mismatches). */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Hidden native file input, opened programmatically via ref.click(). Kept
+   in the DOM (not display:none) and reachable by assistive tech query,
+   but not by Tab (tabIndex=-1 on the element) or click (it sits behind the
+   visible button/card). */
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Empty state: dashed drop zone / picker button. */
+.dropZone {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  font: inherit;
+  color: var(--color-text);
+  text-align: center;
+  background: var(--color-surface-muted);
+  border: 1.5px dashed var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.dropZoneError {
+  border-color: var(--color-error);
+}
+
+.dropZoneDragging {
+  border-color: var(--color-text);
+  background: var(--color-surface-subtle);
+}
+
+.dropIcon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropTextPc {
+  font-weight: 600;
+}
+
+.dropTextMobile {
+  display: none;
+  font-weight: 600;
+}
+
+.dropHint {
+  font-size: 13px;
+  color: var(--color-text-subtle);
+}
+
+@media (max-width: 599px) {
+  .dropTextPc {
+    display: none;
+  }
+
+  .dropTextMobile {
+    display: inline;
+  }
+}
+
+/* Picked state: file card. */
+.fileCard {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface-muted);
+}
+
+.fileCardError {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.fileCardDragging {
+  border-color: var(--color-text);
+  background: var(--color-surface-subtle);
+}
+
+.fileIcon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.fileCardError .fileIcon {
+  color: var(--color-error);
+}
+
+.fileText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.45;
+}
+
+.fileName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.fileMeta {
+  font-size: 13px;
+  color: var(--color-text-subtle);
+}
+
+.fileCardError .fileMeta {
+  color: var(--color-error);
+}
+
+.changeButton {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 599px) {
+  .changeButton {
+    display: none;
+  }
+}
+
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+/* Error line under either state. */
+.errorLine {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-error);
+}
+
+.errorIcon {
+  flex: none;
+  margin-top: 2px;
+}
