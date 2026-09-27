@@ -341,3 +341,61 @@ export function FileIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
   );
 }
 
+export function EditIcon({ size = 16, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ size = 20, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l1 12.5h9l1-12.5" />
+    </svg>
+  );
+}
+
+export function PlusIcon({ size = 16, strokeWidth = 2 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+

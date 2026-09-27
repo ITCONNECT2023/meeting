@@ -59,6 +59,7 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     submit,
     retry,
     cancelAndHome,
+    updateJobMinutes,
   } = useUploadForm(initialMode);
 
   const fileSectionRef = useRef<HTMLElement>(null);
@@ -111,7 +112,7 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     return (
       <>
         <Header mode={mode} showHome onHome={handleHome} />
-        <main className={styles.screen}>
+        <main className={styles.fullWidthMain}>
           <ProcessingScreen
             mode={mode}
             fileName={fileState?.file.name ?? ""}
@@ -149,10 +150,11 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     return (
       <>
         <Header mode={mode} showHome onHome={handleHome} />
-        <main className={styles.screen}>
+        <main className={styles.fullWidthMain}>
           <ReviewScreen
             job={state.job}
             onHome={handleHome}
+            onUpdateJobMinutes={updateJobMinutes}
             onSendMail={() => {
               // EPIC 7 will wire actual mail send confirmation dialog
             }}

@@ -19,7 +19,7 @@ import {
   checkPickedFile,
 } from "@/lib/validation/input";
 
-import type { JobRecord } from "@/lib/minutes/types";
+import type { JobRecord, MeetingMinutes } from "@/lib/minutes/types";
 import { attendeeChipCheck, recipientChipCheck } from "./chipAdapters";
 
 export type UploadMode = "a" | "b";
@@ -590,6 +590,19 @@ export function useUploadForm(initialMode: UploadMode) {
     dispatch({ type: "RESET_TO_FORM" });
   }, []);
 
+  const updateJobMinutes = useCallback((updatedMinutes: MeetingMinutes, maskedCount?: number) => {
+    const current = stateRef.current.job;
+    if (!current) return;
+    dispatch({
+      type: "JOB_UPDATE",
+      job: {
+        ...current,
+        minutes: updatedMinutes,
+        maskedCount: maskedCount !== undefined ? maskedCount : current.maskedCount,
+      },
+    });
+  }, []);
+
   return {
     state,
     pickFile,
@@ -606,5 +619,6 @@ export function useUploadForm(initialMode: UploadMode) {
     submit,
     retry,
     cancelAndHome,
+    updateJobMinutes,
   };
 }

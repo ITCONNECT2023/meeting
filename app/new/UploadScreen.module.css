@@ -27,6 +27,12 @@
   }
 }
 
+.fullWidthMain {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
 .formArea {
   display: flex;
   flex-direction: column;

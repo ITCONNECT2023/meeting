@@ -340,6 +340,8 @@
 .todoTable {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #e3ded4;
   border-radius: 12px;
   overflow: hidden;
@@ -355,6 +357,8 @@
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 76px;
   gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 16px;
   background: var(--color-bg, #f4f2ec);
   font-size: 13px;
@@ -367,6 +371,8 @@
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) 76px;
   gap: 12px;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px 16px;
   border-top: 1px solid var(--color-divider-strong, #eeeae2);
   font-size: 14px;
@@ -753,3 +759,266 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Editing UI Styles */
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-input-border, #c9c3b6);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text, #1c1b18);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editBtn:hover {
+  background: var(--color-bg-page, #f7f6f2);
+}
+
+.editBox {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1.5px solid var(--color-mode-a, #26489a);
+  background: #f6f8fd;
+}
+
+.editBoxTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e3a7e;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.editLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #1c1b18);
+}
+
+.editInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--color-input-border, #c9c3b6);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text, #1c1b18);
+  font: inherit;
+  font-size: 15px;
+}
+
+.editInput:focus {
+  outline: 2px solid var(--color-mode-a, #26489a);
+  outline-offset: -1px;
+}
+
+.editInputMono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.editInputError {
+  border-color: var(--color-error, #b3261e) !important;
+  outline-color: var(--color-error, #b3261e) !important;
+}
+
+.editHelper {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-subtle, #5e5a52);
+}
+
+.editErrorText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-error, #b3261e);
+  font-weight: 600;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.editCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-input-border, #c9c3b6);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text, #1c1b18);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editCancelBtn:hover {
+  background: var(--color-bg-page, #f7f6f2);
+}
+
+.editApplyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--color-mode-a, #26489a);
+  border-radius: 10px;
+  background: var(--color-mode-a, #26489a);
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editApplyBtn:hover {
+  opacity: 0.95;
+}
+
+.addRowBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px dashed #8a857a;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text, #1c1b18);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addRowBtn:hover {
+  background: var(--color-bg-page, #f7f6f2);
+}
+
+.delRowBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #3d3a34;
+  cursor: pointer;
+}
+
+.delRowBtn:hover {
+  background: #ece7dc;
+}
+
+.decEditColsHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 44px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-subtle, #5e5a52);
+}
+
+.decEditRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.todoEditColsHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 110px 44px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-subtle, #5e5a52);
+}
+
+.todoEditRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 110px 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 767px) {
+  .decEditColsHeader,
+  .todoEditColsHeader {
+    display: none;
+  }
+
+  .decEditRow {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .decEditRow > input:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .todoEditRow {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid var(--color-divider, #ddd8ce);
+    border-radius: 10px;
+  }
+
+  .todoEditRow .delRowBtn {
+    align-self: flex-end;
+  }
+}
+
+.sendButtonDisabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.sendWarning {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-subtle, #5e5a52);
+}
+
+.barEditWarning {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-subtle, #5e5a52);
+}
+
