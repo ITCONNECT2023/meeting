@@ -118,12 +118,16 @@ export type DurationCheckResult =
  * "unknown" (music-metadata couldn't read it) — the FRD says that case is
  * only checked later, during processing, so it passes here. Exactly 7200s
  * (2 hours) is allowed; 7201s is not.
+ *
+ * Compared in whole seconds: music-metadata counts mp3 encoder padding, so
+ * a file ffprobe reports as exactly 7200.000s reads as 7200.144s. Without
+ * the floor a genuine 2-hour recording would be rejected.
  */
 export function checkDurationSec(
   durationSec: number | null | undefined,
 ): DurationCheckResult {
   if (durationSec == null || Number.isNaN(durationSec)) return { ok: true };
-  if (durationSec > MAX_DURATION_SEC) {
+  if (Math.floor(durationSec) > MAX_DURATION_SEC) {
     return { ok: false, kind: "duration", message: VALIDATION_MESSAGES.fileTooLong };
   }
   return { ok: true };

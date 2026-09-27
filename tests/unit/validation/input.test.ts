@@ -94,6 +94,12 @@ describe("checkDurationSec", () => {
       message: VALIDATION_MESSAGES.fileTooLong,
     });
   });
+
+  it("ignores a sub-second overshoot from mp3 encoder padding", () => {
+    // Real file: ffprobe 7200.000s, music-metadata 7200.144s.
+    expect(checkDurationSec(7200.144)).toEqual({ ok: true });
+    expect(checkDurationSec(7201.152).ok).toBe(false);
+  });
 });
 
 describe("checkNewRecipient", () => {
