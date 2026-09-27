@@ -204,6 +204,28 @@ export function CloseIcon({ size = 20, strokeWidth = 2 }: IconProps) {
   );
 }
 
+// EPIC 2-6: envelope icon next to each address in the B confirm dialog's
+// address list (design/01_PC.html:638) and the send-confirm dialog's
+// 「보내기」 button (:670) — same path reused at both sizes.
+export function MailIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3.5 7l8.5 6 8.5-6" />
+    </svg>
+  );
+}
+
 export function AlertCircleIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
   return (
     <svg

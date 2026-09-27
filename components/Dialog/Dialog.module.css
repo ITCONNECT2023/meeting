@@ -26,6 +26,19 @@
   background: rgba(28, 27, 24, 0.5);
 }
 
+/* The class above sets `display: flex` unconditionally, which — because
+   author-origin rules always beat the UA stylesheet regardless of
+   specificity — quietly cancels the browser's own
+   `dialog:not([open]) { display: none }` default. Harmless with a single
+   <dialog> on the page (it just never happened to get noticed), but with
+   more than one mounted at once (EPIC 2-6: 처음으로/leave + B의 주소 확인,
+   both always-mounted per Dialog.tsx's own doc comment) every closed one
+   was still laid out in-flow and showing up in the accessibility tree.
+   Restate the default explicitly so closing one actually hides it. */
+.dialog:not([open]) {
+  display: none;
+}
+
 @media (max-width: 599px) {
   .dialog {
     width: 100%;
