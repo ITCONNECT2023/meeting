@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "coverage/**",
     ".local-data/**",
+    "app/.well-known/**",
   ]),
 ]);
 

@@ -475,15 +475,15 @@ test("입력칸에만 쓴 주소도 올리기를 누르면 자동으로 추가�
   await expect(page.getByPlaceholder("name@company.com")).toHaveValue("");
 });
 
-test("A 모드에서 올리기를 누르면 알림이 뜬다", async ({ page }) => {
+test("A 모드에서 올리기를 누르면 처리 중 화면을 거쳐 확인 화면이 열린다", async ({ page }) => {
   await page.goto("/new?mode=a");
   await pickFile(page, "주간회의_0922.m4a");
   await addRecipient(page, "a@x.com");
 
   await page.getByRole("button", { name: "회의록 만들기" }).click();
-  const toast = page.getByRole("status");
-  await expect(toast.getByText("입력 확인을 마쳤습니다")).toBeVisible();
+
   await expect(
-    toast.getByText("실제 올리기는 다음 단계(EPIC 3)에서 연결합니다."),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "회의록을 확인하고, 필요하면 고친 뒤 보내세요" }),
+  ).toBeVisible({ timeout: 15000 });
 });
+

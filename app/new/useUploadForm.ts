@@ -19,9 +19,11 @@ import {
   checkPickedFile,
 } from "@/lib/validation/input";
 
+import type { JobRecord } from "@/lib/minutes/types";
 import { attendeeChipCheck, recipientChipCheck } from "./chipAdapters";
 
 export type UploadMode = "a" | "b";
+export type ScreenState = "form" | "processing" | "review";
 
 /** F1: the picked file plus what's known about it so far. `pickId` is an
  * internal-only guard (see pickFile below) — never shown to the user. */
@@ -37,6 +39,7 @@ export type PickedFile = {
 export type DialogKind = "leave" | "confirmB";
 
 export type UploadFormState = {
+  screen: ScreenState;
   mode: UploadMode;
   fileState: PickedFile | null;
   fileError: FilePickerError | null;
@@ -50,6 +53,8 @@ export type UploadFormState = {
   recipientError: string | null;
   dialog: DialogKind | null;
   toastOpen: boolean;
+  jobId: string | null;
+  job: JobRecord | null;
 };
 
 type Action =
@@ -87,10 +92,18 @@ type Action =
   | { type: "CLOSE_TOAST" }
   | { type: "OPEN_DIALOG"; dialog: DialogKind }
   | { type: "CLOSE_DIALOG" }
-  | { type: "CONFIRM_B_GO" };
+  | { type: "CONFIRM_B_GO" }
+  | { type: "START_JOB_REQUEST" }
+  | { type: "JOB_CREATED"; jobId: string; job: JobRecord }
+  | { type: "JOB_UPDATE"; job: JobRecord }
+  | { type: "JOB_REVIEW"; job: JobRecord }
+  | { type: "JOB_FAILED"; job: JobRecord }
+  | { type: "JOB_ERROR"; error: string }
+  | { type: "RESET_TO_FORM" };
 
 function createInitialState(mode: UploadMode): UploadFormState {
   return {
+    screen: "form",
     mode,
     fileState: null,
     fileError: null,
@@ -104,6 +117,8 @@ function createInitialState(mode: UploadMode): UploadFormState {
     recipientError: null,
     dialog: null,
     toastOpen: false,
+    jobId: null,
+    job: null,
   };
 }
 
@@ -183,6 +198,50 @@ function reducer(state: UploadFormState, action: Action): UploadFormState {
       return { ...state, dialog: null };
     case "CONFIRM_B_GO":
       return { ...state, dialog: null, toastOpen: true };
+    case "START_JOB_REQUEST":
+      return { ...state, screen: "processing", jobId: null, job: null };
+    case "JOB_CREATED":
+      return { ...state, jobId: action.jobId, job: action.job };
+    case "JOB_UPDATE":
+      return { ...state, job: action.job };
+    case "JOB_REVIEW":
+      return { ...state, screen: "review", job: action.job };
+    case "JOB_FAILED":
+      return { ...state, job: action.job };
+    case "JOB_ERROR": {
+      const currentJob: JobRecord = state.job ?? {
+        id: state.jobId ?? "job-err",
+        mode: state.mode.toUpperCase() as "A" | "B",
+        fileName: state.fileState?.file.name ?? "recording.mp3",
+        fileSize: state.fileState?.file.size ?? 0,
+        status: "failed",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        steps: {
+          upload: { status: "failed", startedAt: Date.now(), errorMessage: action.error },
+          transcribe: { status: "pending" },
+          minutes: { status: "pending" },
+        },
+        recipients: state.recipients,
+      };
+      return {
+        ...state,
+        job: {
+          ...currentJob,
+          status: "failed",
+          steps: {
+            ...currentJob.steps,
+            upload: {
+              ...currentJob.steps.upload,
+              status: "failed",
+              errorMessage: action.error,
+            },
+          },
+        },
+      };
+    }
+    case "RESET_TO_FORM":
+      return { ...state, screen: "form", jobId: null, job: null };
   }
 }
 
@@ -297,6 +356,77 @@ export function useUploadForm(initialMode: UploadMode) {
    * the real upload+send). */
   const confirmBGo = useCallback(() => dispatch({ type: "CONFIRM_B_GO" }), []);
 
+  const startJobFlow = useCallback(async (file: File) => {
+    dispatch({ type: "START_JOB_REQUEST" });
+    const s = stateRef.current;
+    try {
+      const jobRes = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: s.mode,
+          audio: {
+            name: file.name,
+            size: file.size,
+            durationSec: s.fileState?.durationSec ?? null,
+          },
+          meetingInfo: {
+            title: s.title.trim() || undefined,
+            date: s.date.trim() || undefined,
+            attendees: s.attendees.length > 0 ? s.attendees : undefined,
+          },
+          recipients: s.recipients,
+        }),
+      });
+      if (!jobRes.ok) {
+        const err = await jobRes.json().catch(() => ({}));
+        dispatch({
+          type: "JOB_ERROR",
+          error: err.message || "작업을 생성하지 못했습니다.",
+        });
+        return;
+      }
+      const data = await jobRes.json();
+      const id = data.job?.id || data.id;
+      const record = data.job || data.record;
+      dispatch({ type: "JOB_CREATED", jobId: id, job: record });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch(`/api/upload?jobId=${id}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({}));
+        dispatch({
+          type: "JOB_ERROR",
+          error: err.message || "녹음 파일을 올리지 못했습니다.",
+        });
+        return;
+      }
+
+      // Check job right after upload
+      const jobCheckRes = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
+      if (jobCheckRes.ok) {
+        const checkData = await jobCheckRes.json();
+        if (checkData.job) {
+          const j: JobRecord = checkData.job;
+          if (j.status === "review" || j.status === "sent") {
+            dispatch({ type: "JOB_REVIEW", job: j });
+          } else if (j.status === "failed") {
+            dispatch({ type: "JOB_FAILED", job: j });
+          } else {
+            dispatch({ type: "JOB_UPDATE", job: j });
+          }
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "작업을 시작하지 못했습니다.";
+      dispatch({ type: "JOB_ERROR", error: msg });
+    }
+  }, []);
+
   /**
    * F1/F3 올리기 버튼: force-commits both drafts (recipients — FRD's own
    * requirement — and, per the EPIC 2 plan, attendees too, purely for
@@ -364,8 +494,99 @@ export function useUploadForm(initialMode: UploadMode) {
       return { ok: false, failedSection: missingFile || fileBlocked ? "file" : "recipients" };
     }
 
-    dispatch(s.mode === "a" ? { type: "SHOW_TOAST" } : { type: "OPEN_DIALOG", dialog: "confirmB" });
+    if (s.mode === "a") {
+      void startJobFlow(fileState!.file);
+      return { ok: true, mode: s.mode };
+    }
+
+    dispatch({ type: "OPEN_DIALOG", dialog: "confirmB" });
     return { ok: true, mode: s.mode };
+  }, [startJobFlow]);
+
+  // 2s polling while processing
+  useEffect(() => {
+    if (state.screen !== "processing" || !state.jobId) return;
+    if (
+      state.job?.status === "review" ||
+      state.job?.status === "sent" ||
+      state.job?.status === "failed"
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${state.jobId}`, { cache: "no-store" });
+        if (!active || !res.ok) return;
+        const data = await res.json();
+        if (!active || !data.job) return;
+        const fetchedJob: JobRecord = data.job;
+        if (fetchedJob.status === "review" || fetchedJob.status === "sent") {
+          dispatch({ type: "JOB_REVIEW", job: fetchedJob });
+        } else if (fetchedJob.status === "failed") {
+          dispatch({ type: "JOB_FAILED", job: fetchedJob });
+        } else {
+          dispatch({ type: "JOB_UPDATE", job: fetchedJob });
+        }
+      } catch {
+        // Will retry next tick
+      }
+    };
+
+    const intervalId = setInterval(poll, 2000);
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [state.screen, state.jobId, state.job?.status]);
+
+  // Window close/refresh guard during processing
+  useEffect(() => {
+    if (state.screen !== "processing") return;
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "지금 나가면 만들던 회의록이 사라집니다.";
+      return "지금 나가면 만들던 회의록이 사라집니다.";
+    };
+
+    const onPageHide = () => {
+      if (state.jobId && state.mode === "a") {
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          navigator.sendBeacon(`/api/jobs/${state.jobId}`);
+        } else {
+          fetch(`/api/jobs/${state.jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onPageHide);
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [state.screen, state.jobId, state.mode]);
+
+  const retry = useCallback(() => {
+    const file = stateRef.current.fileState?.file;
+    if (!file) return;
+    void startJobFlow(file);
+  }, [startJobFlow]);
+
+  const cancelAndHome = useCallback(async () => {
+    const jobId = stateRef.current.jobId;
+    if (jobId) {
+      try {
+        await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      } catch {
+        // ignore
+      }
+    }
+    dispatch({ type: "RESET_TO_FORM" });
   }, []);
 
   return {
@@ -382,5 +603,7 @@ export function useUploadForm(initialMode: UploadMode) {
     closeToast,
     confirmBGo,
     submit,
+    retry,
+    cancelAndHome,
   };
 }

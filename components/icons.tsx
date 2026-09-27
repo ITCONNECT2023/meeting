@@ -245,3 +245,59 @@ export function AlertCircleIcon({ size = 18, strokeWidth = 1.8 }: IconProps) {
     </svg>
   );
 }
+
+export function CheckCircleIcon({ size = 22, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.7 2.7L16 9.8" />
+    </svg>
+  );
+}
+
+export function StepSpinnerIcon({ size = 22, strokeWidth = 2 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" opacity="0.25" />
+      <path d="M12 3a9 9 0 0 1 9 9" />
+    </svg>
+  );
+}
+
+export function EmptyCircleIcon({ size = 22, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  );
+}

@@ -47,3 +47,11 @@ export async function DELETE(
     { status: 200, headers: { "Cache-Control": "no-store" } },
   );
 }
+
+export async function POST(
+  request: NextRequest,
+  params: RouteParams,
+): Promise<NextResponse> {
+  return DELETE(request, params);
+}
+

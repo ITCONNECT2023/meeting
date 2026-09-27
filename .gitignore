@@ -32,3 +32,6 @@ npm-debug.log*
 
 # tool cache (Serena MCP), must not be committed
 .serena/
+/.swc
+app/.well-known/
+prompts/

@@ -1,0 +1,288 @@
+.container {
+  box-sizing: border-box;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 44px 56px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+@media (max-width: 1199px) {
+  .container {
+    padding: 36px 40px 64px;
+  }
+}
+
+@media (max-width: 599px) {
+  .container {
+    padding: 22px 16px 32px;
+    gap: 18px;
+  }
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 1199px) {
+  .title {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 599px) {
+  .title {
+    font-size: 22px;
+  }
+}
+
+.fileLine {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-subtle);
+  overflow-wrap: anywhere;
+}
+
+.stepList {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 16px;
+}
+
+.stepItem {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 22px;
+}
+
+.stepItem + .stepItem {
+  border-top: 1px solid var(--color-divider-strong);
+}
+
+.stepRunningA {
+  background: var(--color-mode-a-bg-softer);
+}
+
+.stepRunningB {
+  background: var(--color-mode-b-bg-softer);
+}
+
+.stepFailed {
+  background: var(--color-error-bg);
+}
+
+.stepIcon {
+  flex: none;
+  margin-top: 2px;
+  display: inline-flex;
+}
+
+.iconCompleted {
+  color: var(--color-success);
+}
+
+.iconRunningA {
+  color: var(--color-mode-a);
+  animation: spin 1.5s linear infinite;
+}
+
+.iconRunningB {
+  color: var(--color-mode-b);
+  animation: spin 1.5s linear infinite;
+}
+
+.iconPending {
+  color: var(--color-border-muted);
+}
+
+.iconFailed {
+  color: var(--color-error);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stepBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stepName {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.stepDesc {
+  font-size: 13px;
+  color: var(--color-text-subtle);
+}
+
+.stepErrorText {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-error);
+  line-height: 1.4;
+}
+
+.badge {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeCompleted {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.badgeRunningA {
+  background: var(--color-mode-a-bg);
+  color: var(--color-mode-a-strong);
+}
+
+.badgeRunningB {
+  background: var(--color-mode-b-bg);
+  color: var(--color-mode-b-strong);
+}
+
+.badgePending {
+  background: var(--color-chip-bg);
+  color: var(--color-text-subtle);
+}
+
+.badgeFailed {
+  background: #fde8e8;
+  color: var(--color-error);
+}
+
+.recipientsBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--color-mode-b-bg);
+  border: 1px solid var(--color-mode-b-border);
+}
+
+.recipientsTitle {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-mode-b-strong);
+}
+
+.recipientsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recipientItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.recipientIcon {
+  flex: none;
+  color: var(--color-mode-b);
+}
+
+.noticeLine {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--color-text-subtle);
+}
+
+.noticeIcon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.infoLine {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-subtle);
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-mode-a);
+  background: var(--color-mode-a);
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retryButtonB {
+  border-color: var(--color-mode-b);
+  background: var(--color-mode-b);
+}
+
+.homeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}

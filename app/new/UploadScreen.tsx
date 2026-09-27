@@ -13,6 +13,8 @@ import { Button, Dialog, DialogActions } from "@/components/Dialog/Dialog";
 import { FilePicker } from "@/components/FilePicker/FilePicker";
 import { Header } from "@/components/Header/Header";
 import { MailIcon, ReviewModeIcon, SendModeIcon } from "@/components/icons";
+import { ProcessingScreen } from "@/components/ProcessingScreen/ProcessingScreen";
+import { ReviewScreen } from "@/components/ReviewScreen/ReviewScreen";
 import { Toast } from "@/components/Toast/Toast";
 import { MAX_ATTENDEE_NAME_LENGTH, MAX_TITLE_LENGTH } from "@/lib/validation/input";
 
@@ -55,6 +57,8 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
     closeToast,
     confirmBGo,
     submit,
+    retry,
+    cancelAndHome,
   } = useUploadForm(initialMode);
 
   const fileSectionRef = useRef<HTMLElement>(null);
@@ -81,7 +85,7 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
   const rcpSummary = recipientCount > 0 ? `${recipientCount}명` : "아직 없습니다";
 
   function handleHome() {
-    if (isFormEmpty(state)) {
+    if (state.screen === "form" && isFormEmpty(state)) {
       router.push("/");
       return;
     }
@@ -102,6 +106,71 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
 
   const submitLabel = isA ? "회의록 만들기" : "올리고 바로 보내기";
   const submitClass = `${styles.submitButton} ${isA ? styles.submitA : styles.submitB}`;
+
+  if (state.screen === "processing") {
+    return (
+      <>
+        <Header mode={mode} showHome onHome={handleHome} />
+        <main className={styles.screen}>
+          <ProcessingScreen
+            mode={mode}
+            fileName={fileState?.file.name ?? ""}
+            recipients={recipients}
+            job={state.job}
+            onRetry={retry}
+            onHome={async () => {
+              await cancelAndHome();
+              router.push("/");
+            }}
+          />
+        </main>
+        <Dialog open={dialog === "leave"} onClose={closeDialog} title="처음 화면으로 갈까요?">
+          <p>고른 녹음 파일과 입력한 회의 정보, 받는 주소가 모두 지워집니다.</p>
+          <DialogActions>
+            <Button variant="secondary" autoFocus onClick={closeDialog}>
+              머무르기
+            </Button>
+            <Button
+              variant="primary-dark"
+              onClick={async () => {
+                await cancelAndHome();
+                router.push("/");
+              }}
+            >
+              처음으로
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  }
+
+  if (state.screen === "review" && state.job?.minutes) {
+    return (
+      <>
+        <Header mode={mode} showHome onHome={handleHome} />
+        <main className={styles.screen}>
+          <ReviewScreen minutes={state.job.minutes} />
+        </main>
+        <Dialog open={dialog === "leave"} onClose={closeDialog} title="처음 화면으로 갈까요?">
+          <p>고른 녹음 파일과 입력한 회의 정보, 받는 주소가 모두 지워집니다.</p>
+          <DialogActions>
+            <Button variant="secondary" autoFocus onClick={closeDialog}>
+              머무르기
+            </Button>
+            <Button
+              variant="primary-dark"
+              onClick={() => {
+                router.push("/");
+              }}
+            >
+              처음으로
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <>

@@ -5,6 +5,13 @@ import { createJob } from "@/lib/store/jobs";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(): Promise<NextResponse> {
+  return NextResponse.json(
+    { code: "NOT_FOUND" },
+    { status: 404, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!/^application\/json\s*(;|$)/i.test(contentType)) {
@@ -28,7 +35,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const job = await createJob(parsed.data);
   return NextResponse.json(
-    { job },
+    { id: job.id, job, record: job },
     { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 }
+
