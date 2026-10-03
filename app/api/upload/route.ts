@@ -1,17 +1,37 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getStorage } from "@/lib/storage";
-import { getJob, updateJob } from "@/lib/store/jobs";
+import { confirmBlobUpload } from "@/lib/storage/blob";
+import { finishUpload } from "@/lib/storage/finish-upload";
+import { getStorage, isBlobStorage } from "@/lib/storage";
+import { isAudioPathnameFor } from "@/lib/storage/pathname";
+import { getJob } from "@/lib/store/jobs";
 import { VALIDATION_MESSAGES } from "@/lib/validation/input";
-import { startProcessMeeting } from "@/workflows/runner";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "no-store" } as const;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
-  let jobId = url.searchParams.get("jobId");
-
   const contentType = request.headers.get("content-type") ?? "";
+
+  // EPIC 10-3: in Blob mode the browser has already put the file in Blob and
+  // only tells us its pathname here (the "in case the completion callback is
+  // late" path; the callback does the same work).
+  if (/^application\/json\b/i.test(contentType)) {
+    return confirmBlobUploadRequest(request, url.searchParams.get("jobId"));
+  }
+
+  // Vercel rejects request bodies over 4.5 MB, so a 200 MB recording can't
+  // come through here once Blob is linked. The browser uploads it directly.
+  if (isBlobStorage()) {
+    return NextResponse.json(
+      { code: "DIRECT_UPLOAD_ONLY", message: "녹음은 저장소에 직접 올려야 합니다. 화면을 새로고침한 뒤 다시 시도해 주세요." },
+      { status: 415, headers: NO_STORE },
+    );
+  }
+
+  let jobId = url.searchParams.get("jobId");
   let fileName = "";
   let fileSource: ReadableStream<Uint8Array> | Buffer | null = null;
 
@@ -86,23 +106,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Mark upload completed
-  await updateJob(jobId, {
-    steps: {
-      ...job.steps,
-      upload: {
-        status: "completed",
-        startedAt: job.steps.upload?.startedAt ?? job.createdAt,
-        completedAt: Date.now(),
-      },
-    },
-  });
-
-  // Kick off workflow
-  await startProcessMeeting(jobId);
+  await finishUpload(jobId);
 
   return NextResponse.json(
     { ok: true, jobId },
-    { status: 200, headers: { "Cache-Control": "no-store" } },
+    { status: 200, headers: NO_STORE },
   );
+}
+
+async function confirmBlobUploadRequest(
+  request: NextRequest,
+  jobId: string | null,
+): Promise<NextResponse> {
+  if (!isBlobStorage()) {
+    return NextResponse.json({ code: "BAD_REQUEST" }, { status: 415, headers: NO_STORE });
+  }
+
+  let body: { pathname?: unknown };
+  try {
+    body = (await request.json()) as { pathname?: unknown };
+  } catch {
+    return NextResponse.json({ code: "BAD_REQUEST" }, { status: 400, headers: NO_STORE });
+  }
+
+  if (!jobId || !(await getJob(jobId))) {
+    return NextResponse.json(
+      { code: "JOB_NOT_FOUND", message: "작업을 찾을 수 없습니다." },
+      { status: 404, headers: NO_STORE },
+    );
+  }
+
+  const pathname = typeof body.pathname === "string" ? body.pathname : "";
+  if (!isAudioPathnameFor(pathname, jobId)) {
+    return NextResponse.json({ code: "BAD_REQUEST" }, { status: 400, headers: NO_STORE });
+  }
+
+  if (!(await confirmBlobUpload(pathname))) {
+    return NextResponse.json(
+      { code: "UPLOAD_NOT_FOUND", message: "녹음이 올라가지 않았습니다. 다시 시도해 주세요." },
+      { status: 400, headers: NO_STORE },
+    );
+  }
+
+  await finishUpload(jobId);
+  return NextResponse.json({ ok: true, jobId }, { status: 200, headers: NO_STORE });
 }

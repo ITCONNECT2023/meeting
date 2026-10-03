@@ -2,6 +2,7 @@ import { transcribeAudio } from "@/lib/ai/transcribe";
 import { writeMeetingMinutes } from "@/lib/ai/write-minutes";
 import { maskMinutes, maskScript } from "@/lib/privacy/mask";
 import { getStorage } from "@/lib/storage";
+import { missingAudioError } from "@/lib/storage/types";
 import { deleteJob, getJob, updateJob } from "@/lib/store/jobs";
 import { executeSendWorkflow } from "./send-mail";
 import type { JobRecord, MeetingMinutes, ScriptLine } from "@/lib/minutes/types";
@@ -29,7 +30,6 @@ export async function stepUpdateTranscribeStarted(
 export async function stepPrepareAudio(
   jobId: string,
 ): Promise<{
-  audioPath: string;
   fileName: string;
   attendees?: string[];
   durationSeconds?: number;
@@ -40,15 +40,13 @@ export async function stepPrepareAudio(
   if (!job) {
     throw new Error("작업을 찾을 수 없습니다.");
   }
-  const storage = getStorage();
-  const audioPath = await storage.getAudioPath(jobId);
-  if (!audioPath) {
-    const err = new Error("녹음을 읽을 수 없습니다. 파일이 손상되었을 수 있습니다. 다른 파일로 다시 올려 주세요.");
-    (err as { code?: string }).code = "FILE_CORRUPT";
-    throw err;
+  // Only checks that the recording is there. The file itself is read in
+  // stepTranscribeAudio, because on Vercel each step can run on a different
+  // machine and a temporary file would not survive to the next step (EPIC 10-3).
+  if (!(await getStorage().hasAudio(jobId))) {
+    throw missingAudioError();
   }
   return {
-    audioPath,
     fileName: job.fileName,
     attendees: job.inputAttendees,
     durationSeconds: job.durationSeconds,
@@ -57,20 +55,21 @@ export async function stepPrepareAudio(
 }
 
 export async function stepTranscribeAudio(
-  audioPath: string,
+  jobId: string,
   fileName: string,
   attendees?: string[],
-  jobId?: string,
   durationSeconds?: number,
 ): Promise<{ script: ScriptLine[]; durationSeconds: number; maskedCount: number }> {
   "use step";
-  const result = await transcribeAudio({
-    filePath: audioPath,
-    fileName,
-    attendees,
-    jobId,
-    durationSeconds,
-  });
+  const result = await getStorage().withAudioFile(jobId, (audioPath) =>
+    transcribeAudio({
+      filePath: audioPath,
+      fileName,
+      attendees,
+      jobId,
+      durationSeconds,
+    }),
+  );
   const { script: maskedScript, count: maskedCount } = maskScript(result.script);
   return {
     ...result,

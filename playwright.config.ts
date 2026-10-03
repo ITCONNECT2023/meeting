@@ -33,6 +33,12 @@ export default defineConfig({
       COOKIE_SECURE: "false",
       AI_PROVIDER: "fake",
       MAIL_PROVIDER: "fake",
+      // Pinned empty so a developer's .env.local (which may carry a real
+      // MAIL_ALLOWLIST or a Blob token from `vercel env pull`) can't change
+      // what these tests see. Empty = no allowlist, and the fake provider
+      // sends nothing anyway; empty Blob token = local upload folder.
+      MAIL_ALLOWLIST: "",
+      BLOB_READ_WRITE_TOKEN: "",
       // Every e2e test that submits a password sends its own
       // x-forwarded-for (tests/e2e/helpers.ts), so parallel tests — all
       // really from 127.0.0.1 — get separate lockout counters and the

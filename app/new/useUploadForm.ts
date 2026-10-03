@@ -8,6 +8,7 @@
 // F4 (보내는 방식 선택), F14 (처음으로 나가기).
 
 import { useCallback, useEffect, useRef, useReducer } from "react";
+import { upload } from "@vercel/blob/client";
 
 import type { ChipCommitResult } from "@/components/ChipInput/commit";
 import { commit } from "@/components/ChipInput/commit";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/validation/input";
 
 import type { JobRecord, MeetingMinutes } from "@/lib/minutes/types";
+import { audioPathnameFor } from "@/lib/storage/pathname";
 import { attendeeChipCheck, recipientChipCheck } from "./chipAdapters";
 
 export type UploadMode = "a" | "b";
@@ -402,19 +404,52 @@ export function useUploadForm(initialMode: UploadMode) {
       const record = data.job || data.record;
       dispatch({ type: "JOB_CREATED", jobId: id, job: record });
 
-      const formData = new FormData();
-      formData.append("file", file);
-      const uploadRes = await fetch(`/api/upload?jobId=${id}`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({}));
-        dispatch({
-          type: "JOB_ERROR",
-          error: err.message || "녹음 파일을 올리지 못했습니다.",
+      if (data.uploadMode === "blob") {
+        // EPIC 10-3: the file goes straight to Blob; we only confirm it afterwards.
+        let blobPathname: string;
+        try {
+          const blob = await upload(audioPathnameFor(id, file.name), file, {
+            access: "private",
+            handleUploadUrl: "/api/upload/token",
+            clientPayload: id,
+            multipart: true,
+          });
+          blobPathname = blob.pathname;
+        } catch {
+          dispatch({
+            type: "JOB_ERROR",
+            error: "녹음 파일을 올리지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+          });
+          return;
+        }
+        const confirmRes = await fetch(`/api/upload?jobId=${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathname: blobPathname }),
         });
-        return;
+        if (!confirmRes.ok) {
+          const err = await confirmRes.json().catch(() => ({}));
+          dispatch({
+            type: "JOB_ERROR",
+            error: err.message || "녹음 파일을 올리지 못했습니다.",
+          });
+          return;
+        }
+      } else {
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploadRes = await fetch(`/api/upload?jobId=${id}`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          dispatch({
+            type: "JOB_ERROR",
+            error: err.message || "녹음 파일을 올리지 못했습니다.",
+          });
+          return;
+        }
       }
 
       // Check job right after upload

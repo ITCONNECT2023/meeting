@@ -54,10 +54,9 @@ export async function processMeetingWorkflow(jobId: string): Promise<ProcessMeet
     let transcribeMaskedCount = 0;
     try {
       const transcribed = await stepTranscribeAudio(
-        audioPrep.audioPath,
+        jobId,
         audioPrep.fileName,
         audioPrep.attendees,
-        jobId,
         audioPrep.durationSeconds,
       );
       script = transcribed.script;

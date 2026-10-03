@@ -21,6 +21,10 @@ import { decideWorkflowRoute } from "@/lib/auth/workflow-queue";
  * - `GET /api/cron/cleanup`  exact path, GET only (EPIC 9-1). The route
  *                        itself demands `Authorization: Bearer
  *                        <CRON_SECRET>`, cookie or not.
+ * - `POST /api/upload/token` exact path, POST only (EPIC 10-3). Blob's
+ *                        completion callback arrives without a cookie, so
+ *                        the route checks the cookie itself for token
+ *                        requests and verifies the callback's signature.
  * - `/_next/static/...`  build assets (JS/CSS/next/font files)
  * - `/favicon.ico`, `/robots.txt`
  * - Workflow queue deliveries, which carry their own credential instead
@@ -49,6 +53,8 @@ const AUTH_API_PATH = "/api/auth";
  * falls through to the cookie check, i.e. fails closed.
  */
 const CRON_CLEANUP_PATH = "/api/cron/cleanup";
+/** EPIC 10-3: see the note in the header; the route does its own check. */
+const UPLOAD_TOKEN_PATH = "/api/upload/token";
 
 function isStaticAsset(pathname: string): boolean {
   return (
@@ -110,6 +116,10 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   if (pathname === CRON_CLEANUP_PATH && method === "GET") {
+    return NextResponse.next();
+  }
+
+  if (pathname === UPLOAD_TOKEN_PATH && method === "POST") {
     return NextResponse.next();
   }
 

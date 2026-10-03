@@ -8,7 +8,7 @@ import {
   MAX_FILE_BYTES,
   VALIDATION_MESSAGES,
 } from "@/lib/validation/input";
-import type { StorageDriver, StoredAudioFile } from "./types";
+import { missingAudioError, type StorageDriver, type StoredAudioFile } from "./types";
 
 function getUploadDir(): string {
   return process.env.UPLOAD_DIR || path.join(process.cwd(), ".local-data", "uploads");
@@ -119,6 +119,16 @@ export class LocalStorageDriver implements StorageDriver {
     const prefix = `${jobId}_`;
     const matched = files.find((f) => f.startsWith(prefix));
     return matched ? path.join(this.uploadDir, matched) : null;
+  }
+
+  async hasAudio(jobId: string): Promise<boolean> {
+    return (await this.getAudioPath(jobId)) !== null;
+  }
+
+  async withAudioFile<T>(jobId: string, run: (filePath: string) => Promise<T>): Promise<T> {
+    const audioPath = await this.getAudioPath(jobId);
+    if (!audioPath) throw missingAudioError();
+    return run(audioPath);
   }
 
   async deleteAudio(jobId: string): Promise<void> {

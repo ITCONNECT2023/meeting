@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { JobInputSchema } from "@/lib/validation/input";
+import { isBlobStorage } from "@/lib/storage";
 import { createJob } from "@/lib/store/jobs";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const job = await createJob(parsed.data);
+  // EPIC 10-3: tells the browser whether to send the file to Blob or to this server.
+  const uploadMode = isBlobStorage() ? "blob" : "local";
   return NextResponse.json(
-    { id: job.id, job, record: job },
+    { id: job.id, job, record: job, uploadMode },
     { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 }
