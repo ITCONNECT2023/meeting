@@ -1,7 +1,15 @@
 import nodemailer, { type SendMailOptions } from "nodemailer";
+import { ImapFlow } from "imapflow";
+import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
-import { filterAllowedRecipients } from "./allowlist";
+import {
+  EMPTY_ALLOWLIST_REASON,
+  NOT_IN_ALLOWLIST_REASON,
+  filterAllowedRecipients,
+  isAllowlistRequired,
+  parseAllowlist,
+} from "./allowlist";
 
 export interface EmailAttachment {
   filename: string;
@@ -16,6 +24,13 @@ export interface SendEmailOptions {
   text: string;
   html?: string;
   attachments?: EmailAttachment[];
+  /**
+   * Message-ID to put on the mail. The send workflow picks it (and records
+   * it) BEFORE handing the mail to Gmail, so a retry after an interruption
+   * can look for exactly this ID in Sent Mail (EPIC 7-4). Generated here
+   * when omitted.
+   */
+  messageId?: string;
 }
 
 export interface SendEmailRecipientResult {
@@ -102,6 +117,75 @@ function checkAndUpdateEmailBudget(recipientEmails: string[], messageId: string)
 }
 
 /**
+ * True when mail really goes out through Gmail SMTP: MAIL_PROVIDER isn't
+ * "fake" and the Gmail credentials are set. Anything else uses the fake box.
+ */
+export function isRealSmtp(): boolean {
+  const provider = (process.env.MAIL_PROVIDER || "fake").toLowerCase();
+  return provider !== "fake" && !!process.env.GMAIL_USER && !!process.env.GMAIL_APP_PASSWORD;
+}
+
+function mailDomain(): string {
+  const gmailUser = process.env.GMAIL_USER;
+  return gmailUser && gmailUser.includes("@") ? gmailUser.split("@")[1] : "meeting.local";
+}
+
+/**
+ * A new, unique Message-ID for one send attempt of a job. Random rather than
+ * time-based so the workflow can choose (and save) it before sending and a
+ * later retry can look for the very same ID in Sent Mail (EPIC 7-4).
+ */
+export function createMessageId(jobId: string): string {
+  return `<job-${jobId}-${randomUUID()}@${mailDomain()}>`;
+}
+
+/**
+ * Whether a mail with this Message-ID was already accepted by Gmail — i.e.
+ * it is in the dedicated account's Sent Mail (EPIC 7-4, TRD ④-7). Used
+ * before re-sending after an interruption. Throws when Sent Mail can't be
+ * checked, so the caller never re-sends without knowing.
+ */
+export async function wasMessageSent(messageId: string): Promise<boolean> {
+  if (!isRealSmtp()) {
+    return fakeSentEmails.some((m) => m.messageId === messageId);
+  }
+
+  const client = new ImapFlow({
+    host: "imap.gmail.com",
+    port: 993,
+    secure: true,
+    auth: {
+      user: process.env.GMAIL_USER as string,
+      pass: process.env.GMAIL_APP_PASSWORD as string,
+    },
+    logger: false,
+  });
+
+  await client.connect();
+  try {
+    // Sent Mail's name depends on the account language ("보낸편지함",
+    // "Sent Mail"), so find it by its special-use flag.
+    const folders = await client.list();
+    const sentPath =
+      folders.find((f) => f.specialUse === "\\Sent" && f.specialUseSource === "extension")?.path ??
+      folders.find((f) => f.specialUse === "\\Sent")?.path;
+    if (!sentPath) {
+      throw new Error("Sent Mail folder not found");
+    }
+
+    const lock = await client.getMailboxLock(sentPath);
+    try {
+      const found = await client.search({ header: { "message-id": messageId } }, { uid: true });
+      return Array.isArray(found) && found.length > 0;
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
+/**
  * Sends meeting minutes email via SMTP or fake mock.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResponse> {
@@ -111,8 +195,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     return { ok: true, results: [] };
   }
 
-  // 1. Allowlist filtering (DEV 5-1, TRD 5-1)
-  const { allowed, blocked } = filterAllowedRecipients(recipients);
+  const realSmtp = isRealSmtp();
+
+  // 1. Allowlist filtering (DEV 7-2, TRD 7장). Real SMTP outside Vercel
+  // production fails closed: no MAIL_ALLOWLIST means nobody is sent to.
+  const requireAllowlist = isAllowlistRequired({ realSmtp });
+  const { allowed, blocked } = filterAllowedRecipients(recipients, undefined, {
+    requireAllowlist,
+  });
+  const blockedReason =
+    parseAllowlist().length === 0 ? EMPTY_ALLOWLIST_REASON : NOT_IN_ALLOWLIST_REASON;
 
   const results: SendEmailRecipientResult[] = [];
 
@@ -120,11 +212,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     results.push({
       email: b,
       status: "failed",
-      errorReason: "허용 목록(MAIL_ALLOWLIST)에 없는 주소입니다",
+      errorReason: blockedReason,
     });
   }
 
   if (allowed.length === 0) {
+    // Nothing reached Gmail: no Message-ID, nothing to look for in bounces.
     return {
       ok: false,
       results,
@@ -132,16 +225,15 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     };
   }
 
-  const provider = (process.env.MAIL_PROVIDER || "fake").toLowerCase();
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-  const fromDomain = gmailUser && gmailUser.includes("@") ? gmailUser.split("@")[1] : "meeting.local";
-  const messageId = `<job-${jobId}-${Date.now()}@${fromDomain}>`;
+  const fromDomain = mailDomain();
+  const messageId = options.messageId ?? createMessageId(jobId);
   const fromHeader = gmailUser ? `회의록 봇 <${gmailUser}>` : `회의록 봇 <no-reply@${fromDomain}>`;
 
   // 2. Fake Mail Provider (default or explicit)
-  if (provider === "fake" || !gmailUser || !gmailPass) {
+  if (!realSmtp) {
     // Check for simulated SMTP outright reject
     if (allowed.some((e) => e.toLowerCase().includes("smtp-reject@"))) {
       throw new Error("Gmail 접수 거절: 서비스 일시 장애로 메일을 보낼 수 없습니다.");
@@ -221,6 +313,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
         user: gmailUser,
         pass: gmailPass,
       },
+      // Keep one attempt well inside the send lock (SEND_LOCK_TTL_SECONDS):
+      // nodemailer's defaults (2 min connect, 10 min idle socket) could let
+      // a stalled attempt outlive the lock and overlap a second send.
+      connectionTimeout: 30_000,
+      greetingTimeout: 30_000,
+      socketTimeout: 60_000,
     });
 
     const mailOptions: SendMailOptions = {

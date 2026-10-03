@@ -217,7 +217,11 @@ export async function stepSendMail(jobId: string): Promise<void> {
   try {
     await executeSendWorkflow(jobId);
   } catch (sendErr: unknown) {
-    console.error(`Mode B automatic send error for job ${jobId}:`, sendErr);
+    // Log policy (TRD 5): job id + error code only. `sendErr` may be an
+    // SMTP/IMAP error whose message can embed a recipient address, so it
+    // must never be passed to the logger.
+    const code = (sendErr as { code?: string } | undefined)?.code ?? "SEND_FAILED";
+    console.error(`[send] job=${jobId} step=send-mail error=${code}`);
   }
 }
 

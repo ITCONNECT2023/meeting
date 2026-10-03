@@ -141,17 +141,58 @@ export async function parseBounceMessage(
   };
 }
 
+function normalizeMessageId(id: string): string {
+  return id.trim().replace(/^<|>$/g, "");
+}
+
+/** Clock skew allowed between our server and Gmail when comparing times. */
+const RECEIVED_SKEW_MS = 60_000;
+
+/**
+ * Whether a bounce belongs to THIS send (FRD 3-4). A bounce for an earlier
+ * mail to the same address — the first try this morning, or another job —
+ * must not mark a mail that did arrive as "보내지 못함", or the user's
+ * "실패한 주소에 다시 보내기" would deliver it a second time.
+ *  - When the bounce names the original Message-ID (Gmail sets
+ *    In-Reply-To), it must be one of ours.
+ *  - Otherwise it must have arrived after we sent.
+ */
+export function isBounceForSend(
+  info: Pick<BounceInfo, "originalMessageId">,
+  receivedAt: Date | undefined,
+  send: { messageIds: string[]; sentAt?: number },
+): boolean {
+  if (info.originalMessageId && send.messageIds.length > 0) {
+    const original = normalizeMessageId(info.originalMessageId);
+    return send.messageIds.some((id) => normalizeMessageId(id) === original);
+  }
+  if (send.sentAt !== undefined && receivedAt) {
+    return receivedAt.getTime() >= send.sentAt - RECEIVED_SKEW_MS;
+  }
+  return true;
+}
+
 /**
  * Checks for bounce notifications for a job via IMAP.
  * In fake mode, evaluates simulated addresses.
+ * Only bounces for this send's Message-ID(s) — or, when a bounce names
+ * none, ones received after `sentAt` — count (see `isBounceForSend`).
  */
 export async function checkBouncesForJob(options: {
   jobId: string;
   recipients: string[];
   messageId?: string;
+  /** Extra Message-IDs of the same send (a recovered interrupted attempt). */
+  messageIds?: string[];
+  /** When the mail was handed to Gmail (ms since epoch). */
+  sentAt?: number;
   timeoutMs?: number;
 }): Promise<Map<string, { status: "failed"; reason: string }>> {
-  const { recipients } = options;
+  const { jobId, recipients } = options;
+  const messageIds = [
+    ...(options.messageId ? [options.messageId] : []),
+    ...(options.messageIds ?? []),
+  ];
   const bounceMap = new Map<string, { status: "failed"; reason: string }>();
 
   const provider = (process.env.MAIL_PROVIDER || "fake").toLowerCase();
@@ -174,6 +215,10 @@ export async function checkBouncesForJob(options: {
     return bounceMap;
   }
 
+  if (recipients.length === 0) {
+    return bounceMap;
+  }
+
   // Real IMAP check
   const client = new ImapFlow({
     host: "imap.gmail.com",
@@ -190,17 +235,25 @@ export async function checkBouncesForJob(options: {
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
     try {
-      // Search recent messages in the last 5 minutes
+      // Search recent messages in the last 5 minutes. IMAP SINCE is
+      // day-granular, so this actually returns all of today's mail: each
+      // bounce is matched to this send by Message-ID / arrival time below.
       const sinceDate = new Date(Date.now() - 5 * 60 * 1000);
       const messages = client.fetch(
         { since: sinceDate },
-        { source: true, envelope: true, bodyStructure: true }
+        { source: true, envelope: true, bodyStructure: true, internalDate: true }
       );
 
       for await (const message of messages) {
         if (!message.source) continue;
         const bounceInfo = await parseBounceMessage(message.source);
-        if (bounceInfo && bounceInfo.recipient) {
+        const receivedRaw = message.internalDate ?? message.envelope?.date;
+        const receivedAt = receivedRaw ? new Date(receivedRaw) : undefined;
+        if (
+          bounceInfo &&
+          bounceInfo.recipient &&
+          isBounceForSend(bounceInfo, receivedAt, { messageIds, sentAt: options.sentAt })
+        ) {
           const matchedRcp = recipients.find(
             (r) => r.toLowerCase() === bounceInfo.recipient!.toLowerCase()
           );
@@ -214,7 +267,10 @@ export async function checkBouncesForJob(options: {
     }
     await client.logout();
   } catch (err) {
-    console.error("IMAP bounce check error:", err);
+    // Log policy (TRD 5): error code only. The raw IMAP error can contain
+    // a recipient address or mail content, so it must never be logged.
+    const code = (err as { code?: string } | undefined)?.code ?? "IMAP_ERROR";
+    console.error(`[bounce] job=${jobId} step=bounce-check error=${code}`);
   }
 
   return bounceMap;

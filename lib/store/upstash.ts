@@ -29,6 +29,17 @@ end
 return n
 `;
 
+/**
+ * DEL the key only if it still holds ARGV[1], as one Lua script so no other
+ * client can take the key between the compare and the delete.
+ */
+const DELETE_IF_VALUE_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+
 function readRequiredEnv(primaryName: string, fallbackName: string): string {
   const value = process.env[primaryName] ?? process.env[fallbackName];
   if (!value) {
@@ -97,6 +108,17 @@ export function createUpstashStore(): KeyValueStore {
         nx: true,
       });
       return result === "OK";
+    },
+
+    async deleteIfValue(key: string, value: string): Promise<boolean> {
+      // A string value is stored as-is by @upstash/redis (no JSON quoting),
+      // so it compares equal to the same string passed as ARGV.
+      const deleted = await redis.eval<[string], number>(
+        DELETE_IF_VALUE_SCRIPT,
+        [key],
+        [value],
+      );
+      return Number(deleted) === 1;
     },
   };
 }

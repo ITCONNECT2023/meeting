@@ -67,7 +67,35 @@ export async function POST(
   if (isClientLeft || bodyJson?.clientLeft) {
     const job = await getJob(id);
     if (job && job.mode === "B") {
+      // F11/TRD4: once the B job has already finished (sent or failed),
+      // nothing else ever looks at `clientLeft` again (the workflow's own
+      // check already ran) — so if the client's leave signal shows up this
+      // late, delete right away instead of leaving it for the 24h TTL.
+      if (job.status === "sent" || job.status === "failed") {
+        const storage = getStorage();
+        await storage.deleteAudio(id);
+        const deleted = await deleteJob(id);
+        return NextResponse.json(
+          { ok: true, deleted },
+          { status: 200, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
       await updateJob(id, { clientLeft: true });
+
+      // Close the race: the workflow may finish between the read above and
+      // this write, after which no later check will ever see the flag.
+      const after = await getJob(id);
+      if (after && (after.status === "sent" || after.status === "failed")) {
+        const storage = getStorage();
+        await storage.deleteAudio(id);
+        const deleted = await deleteJob(id);
+        return NextResponse.json(
+          { ok: true, deleted },
+          { status: 200, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
       return NextResponse.json(
         { ok: true, clientLeft: true },
         { status: 200, headers: { "Cache-Control": "no-store" } },

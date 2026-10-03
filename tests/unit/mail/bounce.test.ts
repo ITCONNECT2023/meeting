@@ -1,5 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// A fake INBOX so the real-IMAP branch can run without any network access.
+const imap = vi.hoisted(() => ({
+  inbox: [] as { source: string; internalDate: Date }[],
+}));
+
+vi.mock("imapflow", () => ({
+  ImapFlow: class {
+    async connect() {}
+    async getMailboxLock() {
+      return { release() {} };
+    }
+    async *fetch() {
+      for (const m of imap.inbox) {
+        yield { source: Buffer.from(m.source), internalDate: m.internalDate };
+      }
+    }
+    async logout() {}
+  },
+}));
+
 import {
+  checkBouncesForJob,
   mapStatusCodeToReason,
   parseBounceMessage,
 } from "@/lib/mail/bounce";
@@ -92,5 +114,80 @@ Diagnostic-Code: smtp; 552 5.2.2 Over quota`;
       expect(parsed?.statusCode).toBe("5.2.2");
       expect(parsed?.reason).toBe("메일함이 가득 참");
     });
+  });
+});
+
+describe("checkBouncesForJob — 이번 발송의 반송만 본다 (FRD 3-4)", () => {
+  function dsn(to: string, inReplyTo?: string): string {
+    return [
+      `From: "Mail Delivery Subsystem" <mailer-daemon@googlemail.com>`,
+      `To: bot@example.com`,
+      `Subject: Delivery Status Notification (Failure)`,
+      ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`] : []),
+      `Content-Type: text/plain; charset=utf-8`,
+      ``,
+      `Final-Recipient: rfc822; ${to}`,
+      `Action: failed`,
+      `Status: 4.2.2`,
+    ].join("\n");
+  }
+
+  const SENT_AT = Date.parse("2026-09-27T10:00:00Z");
+
+  beforeEach(() => {
+    vi.stubEnv("MAIL_PROVIDER", "smtp");
+    vi.stubEnv("GMAIL_USER", "bot@example.com");
+    vi.stubEnv("GMAIL_APP_PASSWORD", "not-a-real-password");
+    imap.inbox.length = 0;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("같은 주소라도 앞서 보낸 다른 메일(다른 고유 번호)의 반송은 무시한다", async () => {
+    // 오늘 아침 첫 발송이 일시 오류로 반송됐고, 다시 보낸 메일은 잘 도착했다.
+    imap.inbox.push({
+      source: dsn("x@example.com", "<job-j-old@example.com>"),
+      internalDate: new Date(SENT_AT - 60 * 60 * 1000),
+    });
+
+    const map = await checkBouncesForJob({
+      jobId: "j",
+      recipients: ["x@example.com"],
+      messageId: "<job-j-new@example.com>",
+      sentAt: SENT_AT,
+    });
+    expect(map.size).toBe(0);
+  });
+
+  it("이번 고유 번호에 대한 반송은 잡는다", async () => {
+    imap.inbox.push({
+      source: dsn("x@example.com", "<job-j-new@example.com>"),
+      internalDate: new Date(SENT_AT + 5_000),
+    });
+
+    const map = await checkBouncesForJob({
+      jobId: "j",
+      recipients: ["x@example.com"],
+      messageId: "<job-j-new@example.com>",
+      sentAt: SENT_AT,
+    });
+    expect(map.get("x@example.com")?.reason).toBe("일시적인 메일 서비스 문제");
+  });
+
+  it("고유 번호가 없는 반송은 보낸 시각 이후에 온 것만 본다", async () => {
+    imap.inbox.push(
+      { source: dsn("old@example.com"), internalDate: new Date(SENT_AT - 30 * 60 * 1000) },
+      { source: dsn("new@example.com"), internalDate: new Date(SENT_AT + 10_000) },
+    );
+
+    const map = await checkBouncesForJob({
+      jobId: "j",
+      recipients: ["old@example.com", "new@example.com"],
+      messageId: "<job-j-new@example.com>",
+      sentAt: SENT_AT,
+    });
+    expect([...map.keys()]).toEqual(["new@example.com"]);
   });
 });

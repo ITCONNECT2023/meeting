@@ -128,4 +128,44 @@ test.describe("EPIC 8: 바로 보내기 (B)", () => {
     // Never navigates to Done screen
     await expect(page.getByRole("heading", { name: "검토 없이 바로 보냈습니다" })).not.toBeVisible();
   });
+
+  test("발송 결과 화면이 뜬 뒤 창을 닫으면 작업이 즉시 삭제된다 (F11/TRD4)", async ({ page, request }) => {
+    await page.goto("/new?mode=b");
+
+    await pickFile(page, "마케팅_주간회의_닫기.mp3");
+    await addRecipient(page, "close_tab@example.com");
+
+    await page.getByRole("button", { name: "올리고 바로 보내기" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const [jobRes] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/jobs") && r.request().method() === "POST"),
+      dialog.getByRole("button", { name: "이 주소로 올리고 보내기" }).click(),
+    ]);
+    const jobId: string = (await jobRes.json()).id;
+
+    // Wait until the job is fully finished (status "sent": send + bounce
+    // check both already ran) before closing — this is the race from the
+    // bug report: closing well *after* the workflow's own clientLeft check
+    // already ran, so only the route itself can still clean this up.
+    await expect(
+      page.getByRole("heading", { name: "검토 없이 바로 보냈습니다" }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.locator("aside:visible, div[class*='topMailBox']:visible").getByText("보냄"),
+    ).toBeVisible({ timeout: 10000 });
+
+    const cookies = await page.context().cookies();
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+
+    await page.close();
+
+    await expect(async () => {
+      const res = await request.get(`/api/jobs/${jobId}`, {
+        headers: { Cookie: cookieHeader },
+      });
+      expect(res.status()).toBe(410);
+    }).toPass({ timeout: 10000 });
+  });
 });

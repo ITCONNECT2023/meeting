@@ -39,4 +39,11 @@ export interface KeyValueStore {
    * "start only once" locks (e.g. don't kick off the same job twice).
    */
   setIfAbsent<T>(key: string, value: T, options: SetOptions): Promise<boolean>;
+
+  /**
+   * Atomically deletes `key` only if it (still) holds `value`. Returns
+   * `true` if it was deleted. Releases a `setIfAbsent` lock without
+   * touching a newer holder's lock after ours expired.
+   */
+  deleteIfValue(key: string, value: string): Promise<boolean>;
 }

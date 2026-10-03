@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedRecipient, filterAllowedRecipients } from "@/lib/mail/allowlist";
+import {
+  isAllowedRecipient,
+  filterAllowedRecipients,
+  isAllowlistRequired,
+} from "@/lib/mail/allowlist";
 
 describe("MAIL_ALLOWLIST validation (PRD 5-1, TRD 5-1)", () => {
   it("허용 목록이 비어 있으면 모든 주소를 허용한다 (운영 기본값)", () => {
@@ -28,5 +32,33 @@ describe("MAIL_ALLOWLIST validation (PRD 5-1, TRD 5-1)", () => {
     const res = filterAllowedRecipients(["a@x.com", "c@x.com", "B@X.COM"], list);
     expect(res.allowed).toEqual(["a@x.com", "B@X.COM"]);
     expect(res.blocked).toEqual(["c@x.com"]);
+  });
+});
+
+describe("MAIL_ALLOWLIST 필수 모드 (로컬·미리보기 실제 발송, EPIC 7-2)", () => {
+  it("필수 모드에서 허용 목록이 비어 있으면 모든 주소를 막는다", () => {
+    const opts = { requireAllowlist: true };
+    expect(isAllowedRecipient("user@example.com", "", opts)).toBe(false);
+    expect(isAllowedRecipient("user@example.com", "   ", opts)).toBe(false);
+    expect(isAllowedRecipient("user@example.com", " , ,", opts)).toBe(false);
+    const res = filterAllowedRecipients(["a@x.com", "b@y.com"], "", opts);
+    expect(res.allowed).toEqual([]);
+    expect(res.blocked).toEqual(["a@x.com", "b@y.com"]);
+  });
+
+  it("필수 모드여도 목록에 적힌 주소는 그대로 보낸다", () => {
+    const opts = { requireAllowlist: true };
+    expect(isAllowedRecipient("me@x.com", "me@x.com", opts)).toBe(true);
+    expect(isAllowedRecipient("other@x.com", "me@x.com", opts)).toBe(false);
+  });
+
+  it("실제 SMTP이고 운영(VERCEL_ENV=production)이 아닐 때만 필수다", () => {
+    expect(isAllowlistRequired({ realSmtp: true, vercelEnv: undefined })).toBe(true);
+    expect(isAllowlistRequired({ realSmtp: true, vercelEnv: "" })).toBe(true);
+    expect(isAllowlistRequired({ realSmtp: true, vercelEnv: "development" })).toBe(true);
+    expect(isAllowlistRequired({ realSmtp: true, vercelEnv: "preview" })).toBe(true);
+    expect(isAllowlistRequired({ realSmtp: true, vercelEnv: "production" })).toBe(false);
+    // 가짜 메일 창구는 실제로 나가지 않으므로 영향 없음
+    expect(isAllowlistRequired({ realSmtp: false, vercelEnv: undefined })).toBe(false);
   });
 });

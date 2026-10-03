@@ -12,6 +12,7 @@ import {
   printLocalUrls,
   startLocalRedis,
 } from "./lib/local-redis.mjs";
+import { envWithWorkflowQueueUrl } from "./lib/workflow-queue-url.mjs";
 
 const PORT = 3000;
 
@@ -25,7 +26,7 @@ const nextBin = require.resolve("next/dist/bin/next");
 const child = spawn(
   process.execPath,
   [nextBin, "dev", "-H", "0.0.0.0", "-p", String(PORT)],
-  { stdio: "inherit" },
+  { stdio: "inherit", env: envWithWorkflowQueueUrl(PORT) },
 );
 
 child.on("exit", (code, signal) => {

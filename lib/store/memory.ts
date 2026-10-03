@@ -119,5 +119,15 @@ export function createMemoryStore(
       state.set(key, { value, expiresAt: expiresAtFor(ttlSeconds) });
       return true;
     },
+
+    async deleteIfValue(key: string, value: string): Promise<boolean> {
+      // No await between the check and the delete: atomic in this process.
+      const entry = readLive(state, key, now);
+      if (entry === undefined || entry.value !== value) {
+        return false;
+      }
+      state.delete(key);
+      return true;
+    },
   };
 }

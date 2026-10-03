@@ -1,6 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
-import { AUTH_STATE_PATH } from "./tests/e2e/helpers";
+import {
+  AUTH_STATE_PATH,
+  CRON_TEST_SECRET,
+  WORKFLOW_TEST_QUEUE_SECRET,
+} from "./tests/e2e/helpers";
 
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
@@ -36,6 +40,12 @@ export default defineConfig({
       // setting a deployment behind Vercel's proxy uses; nothing here is a
       // test-only code path.
       TRUST_PROXY_HEADERS: "true",
+      // EPIC 9-1: GET /api/cron/cleanup only runs with this bearer.
+      CRON_SECRET: CRON_TEST_SECRET,
+      // EPIC 9-1: the local Workflow queue delivers through this secret
+      // path; proxy.ts refuses direct /.well-known/workflow/* requests
+      // (lib/auth/workflow-queue.ts). `npm run dev`/`local` generate one.
+      WORKFLOW_LOCAL_BASE_URL: `${baseURL}/_workflow/${WORKFLOW_TEST_QUEUE_SECRET}`,
     },
   },
   projects: [

@@ -125,6 +125,17 @@ describe("upstash driver against local serverless-redis-http", () => {
     await expect(s.get(key)).resolves.toBe("first");
   });
 
+  it("deleteIfValue deletes only the holder's own lock", async () => {
+    const s = store();
+    const key = uniqueKey("del-if");
+    const token = crypto.randomUUID();
+    await s.setIfAbsent(key, token, { ttlSeconds: 30 });
+    await expect(s.deleteIfValue(key, crypto.randomUUID())).resolves.toBe(false);
+    await expect(s.get(key)).resolves.toBe(token);
+    await expect(s.deleteIfValue(key, token)).resolves.toBe(true);
+    await expect(s.get(key)).resolves.toBeNull();
+  });
+
   it(
     "actually expires a key after its TTL (real wait, short TTL)",
     async () => {

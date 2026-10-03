@@ -180,7 +180,8 @@ export function UploadScreen({ initialMode }: UploadScreenProps) {
             </Button>
             <Button
               variant="primary-dark"
-              onClick={() => {
+              onClick={async () => {
+                await cancelAndHome();
                 router.push("/");
               }}
             >

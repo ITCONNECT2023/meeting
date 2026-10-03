@@ -105,18 +105,35 @@ export async function lockJobStart(id: string): Promise<boolean> {
 }
 
 /**
- * Ensures a job send request is processed only once concurrently.
- * Returns true if lock acquired, false if send already in progress.
+ * How long a send lock lives if its holder never releases it (crash). It
+ * must outlast one whole send: SMTP (capped at ~1-2 min by the nodemailer
+ * timeouts in lib/mail/smtp.ts) plus the 15 s wait and up-to-2-minute
+ * bounce check (EPIC 7-4). If it expired mid-send, a second send could run
+ * alongside the first.
  */
-export async function lockJobSend(id: string, ttlSeconds: number = 120): Promise<boolean> {
+export const SEND_LOCK_TTL_SECONDS = 5 * 60;
+
+/**
+ * Ensures a job send request is processed only once concurrently (one
+ * atomic SET NX EX). Returns this holder's token, or null if a send is
+ * already in progress. Pass the token to `unlockJobSend`.
+ */
+export async function lockJobSend(
+  id: string,
+  ttlSeconds: number = SEND_LOCK_TTL_SECONDS,
+): Promise<string | null> {
   const store = getStore();
-  return store.setIfAbsent(sendLockKey(id), true, { ttlSeconds });
+  const token = crypto.randomUUID();
+  const acquired = await store.setIfAbsent(sendLockKey(id), token, { ttlSeconds });
+  return acquired ? token : null;
 }
 
 /**
- * Releases the send lock for a job.
+ * Releases the send lock for a job — only if it is still ours. A holder
+ * whose lock already expired (and was taken by a newer send) must not
+ * delete the newer holder's lock.
  */
-export async function unlockJobSend(id: string): Promise<void> {
+export async function unlockJobSend(id: string, token: string): Promise<void> {
   const store = getStore();
-  await store.del(sendLockKey(id));
+  await store.deleteIfValue(sendLockKey(id), token);
 }

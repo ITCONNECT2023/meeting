@@ -137,4 +137,42 @@ test.describe("EPIC 4: 회의록 화면과 .md 내려받기", () => {
     expect(body.code).toBe("EXPIRED");
     expect(body.message).toBe("보관 시간(24시간)이 지나 회의록이 삭제되었습니다. 녹음을 다시 올려 주세요.");
   });
+
+  test("확인 화면에서 헤더 「처음으로」로 나가면 작업이 즉시 삭제된다 (F11/TRD4)", async ({ page, request }) => {
+    await page.goto("/new?mode=a");
+
+    await pickFile(page, "주간회의_0922.mp3");
+    await addRecipient(page, "user@example.com");
+
+    const [jobRes] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/jobs") && r.request().method() === "POST"),
+      page.getByRole("button", { name: "회의록 만들기" }).click(),
+    ]);
+    const jobId: string = (await jobRes.json()).id;
+
+    await expect(
+      page.getByRole("heading", { name: "회의록을 확인하고, 필요하면 고친 뒤 보내세요" }),
+    ).toBeVisible({ timeout: 15000 });
+
+    // Header's 「처음으로」 (not the Done screen's 새 회의록 buttons)
+    await page.getByRole("banner").getByRole("button", { name: "처음으로" }).click();
+
+    const leaveDialog = page.getByRole("dialog");
+    await expect(leaveDialog).toBeVisible();
+    await expect(
+      leaveDialog.getByText(
+        "회의록은 서비스에 보관되지 않습니다. 메일을 보내거나 .md 파일로 내려받지 않고 나가면 이 회의록을 다시 볼 수 없습니다.",
+      ),
+    ).toBeVisible();
+
+    await leaveDialog.getByRole("button", { name: "처음으로" }).click();
+    await expect(page).toHaveURL("/");
+
+    const cookies = await page.context().cookies();
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    const jobRes2 = await request.get(`/api/jobs/${jobId}`, {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(jobRes2.status()).toBe(410);
+  });
 });

@@ -150,13 +150,17 @@ test.describe("EPIC 7: 메일 보내기 (검토 후 보내기 A)", () => {
     ).toBeVisible();
   });
 
-  test("결과 화면에서 뒤로 가기 방지 및 나가기 확인 창", async ({ page }) => {
+  test("결과 화면에서 뒤로 가기 방지 및 나가기 확인 창", async ({ page, request }) => {
     await page.goto("/new?mode=a");
 
     await pickFile(page, "주간회의_0922.mp3");
     await addRecipient(page, "test@example.com");
 
-    await page.getByRole("button", { name: "회의록 만들기" }).click();
+    const [jobRes] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/jobs") && r.request().method() === "POST"),
+      page.getByRole("button", { name: "회의록 만들기" }).click(),
+    ]);
+    const jobId: string = (await jobRes.json()).id;
 
     await expect(
       page.getByRole("heading", { name: "회의록을 확인하고, 필요하면 고친 뒤 보내세요" }),
@@ -208,5 +212,14 @@ test.describe("EPIC 7: 메일 보내기 (검토 후 보내기 A)", () => {
 
     // Navigated to home screen
     await expect(page).toHaveURL("/");
+
+    // F11/TRD4: leaving the result screen must delete the job right away,
+    // not just leave it to the 24h TTL.
+    const cookies = await page.context().cookies();
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    const jobRes2 = await request.get(`/api/jobs/${jobId}`, {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(jobRes2.status()).toBe(410);
   });
 });

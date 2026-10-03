@@ -62,11 +62,19 @@ export function convertLineNumbersToTimestamps<T extends LineItem>(
   }
 
   const converted: (Omit<T, "line"> & { ts?: string })[] = [];
+  let allValid = true;
 
   for (const item of items) {
     const { line, ...rest } = item;
     if (typeof line !== "number" || line < 1 || line > script.length) {
-      return { valid: false, items: [] };
+      // One item's evidence line being malformed/out-of-range (an LLM
+      // hallucination or formatting slip) must not discard every other
+      // decision/todo in the same response. Keep the item without a
+      // timestamp — callers already fall back to "근거 없음" for a missing
+      // `ts` — and flag the batch as not fully valid for diagnostics.
+      allValid = false;
+      converted.push({ ...rest });
+      continue;
     }
     const targetLine = script[line - 1];
     converted.push({
@@ -75,7 +83,7 @@ export function convertLineNumbersToTimestamps<T extends LineItem>(
     });
   }
 
-  return { valid: true, items: converted };
+  return { valid: allValid, items: converted };
 }
 
 export interface MinutesInputInfo {

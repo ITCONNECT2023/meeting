@@ -21,3 +21,13 @@ export const LOCKED_MESSAGE = "여러 번 틀려 10분 동안 입력할 수 없�
 export function uniqueClientIp(): string {
   return `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
 }
+
+/** CRON_SECRET of the e2e server (playwright.config.ts). 32+ chars. */
+export const CRON_TEST_SECRET = "e2e-cron-secret-0123456789abcdefghijklmnop";
+
+/**
+ * Secret path segment of the e2e server's WORKFLOW_LOCAL_BASE_URL
+ * (playwright.config.ts); the local Workflow queue delivers through
+ * `/_workflow/<this>/...`. 32+ chars of [A-Za-z0-9_-].
+ */
+export const WORKFLOW_TEST_QUEUE_SECRET = "e2e-workflow-queue-secret-0123456789abcdef";

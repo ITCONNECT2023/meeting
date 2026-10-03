@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import type { JobRecord, MeetingMinutes, RecipientResult } from "@/lib/minutes/types";
 import { formatMinutesFilename, formatMailSubject } from "@/lib/minutes/filename";
 import {
@@ -27,6 +27,13 @@ interface ReviewScreenProps {
 }
 
 type EditSection = "meta" | "summary" | "decisions" | "todos" | null;
+
+// 브라우저에서는 페인트 전(커밋 직후)에 동기적으로 실행되어 "완료" 화면이
+// 보이기 전에 뒤로 가기 방지용 history 항목이 반드시 먼저 쌓이도록 합니다.
+// 서버에는 window가 없으므로 이때만 useEffect로 대체해 "useLayoutEffect does
+// nothing on the server" 경고를 피합니다.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export function ReviewScreen({
   job,
@@ -76,7 +83,7 @@ export function ReviewScreen({
   }, [isDone, recipientResults, job.id]);
 
   // Prevent browser back from returning to review screen once done (TRD 2-5, DEV 7-5)
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!isDone) return;
     try {
       window.history.pushState(window.history.state, "", window.location.href);

@@ -258,6 +258,19 @@ function extOf(name: string): string {
   return base.slice(dot + 1).toLowerCase();
 }
 
+/** F11/TRD4: fire-and-forget delete, used from pagehide handlers where the
+ * page may already be gone before a normal `fetch` could complete.
+ * `sendBeacon` only ever does POST, which `/api/jobs/[id]` treats as a
+ * full delete when no `clientLeft` flag is present — the same path `DELETE`
+ * takes. Falls back to a keepalive `fetch` where `sendBeacon` isn't available. */
+function sendDeleteBeacon(jobId: string): void {
+  if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+    navigator.sendBeacon(`/api/jobs/${jobId}`);
+  } else {
+    fetch(`/api/jobs/${jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
+  }
+}
+
 export type SubmitOutcome =
   | { ok: true; mode: UploadMode }
   | { ok: false; failedSection: "file" | "recipients" };
@@ -554,11 +567,17 @@ export function useUploadForm(initialMode: UploadMode) {
     };
   }, [state.screen, state.jobId, state.job?.status]);
 
-  // Window close/refresh guard during processing
+  // Window close/refresh guard during processing, and on the review/done
+  // screen (FRD F7/F11/F14, TRD 4): job data must not outlive the user
+  // leaving that screen, by any exit — including closing/refreshing the
+  // tab, not just the in-app 처음으로/새 회의록 buttons.
   useEffect(() => {
-    if (state.screen !== "processing") return;
+    if (state.screen !== "processing" && state.screen !== "review") return;
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only the processing screen's own leave-confirmation rules apply
+      // here (F6/F10) — the review/done screen never blocks refresh/close.
+      if (state.screen !== "processing") return;
       // In Mode B, once upload is completed, do not prevent unload
       if (state.mode === "b" && state.job?.steps.upload.status === "completed") {
         return;
@@ -570,12 +589,16 @@ export function useUploadForm(initialMode: UploadMode) {
 
     const onPageHide = () => {
       if (!state.jobId) return;
+
+      if (state.screen === "review") {
+        // Review/done screen: leaving by any means deletes the job right
+        // away, same as the in-app 처음으로/새 회의록 exit.
+        sendDeleteBeacon(state.jobId);
+        return;
+      }
+
       if (state.mode === "a") {
-        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-          navigator.sendBeacon(`/api/jobs/${state.jobId}`);
-        } else {
-          fetch(`/api/jobs/${state.jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
-        }
+        sendDeleteBeacon(state.jobId);
       } else if (state.mode === "b") {
         if (state.job?.steps.upload.status === "completed") {
           // Upload completed: mark clientLeft
@@ -586,11 +609,7 @@ export function useUploadForm(initialMode: UploadMode) {
           }
         } else {
           // Upload not completed: cancel job
-          if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-            navigator.sendBeacon(`/api/jobs/${state.jobId}`);
-          } else {
-            fetch(`/api/jobs/${state.jobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
-          }
+          sendDeleteBeacon(state.jobId);
         }
       }
     };

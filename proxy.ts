@@ -4,6 +4,7 @@ import { FORWARDING_HEADERS } from "@/lib/auth/client-ip";
 import { isValidSessionCookie } from "@/lib/auth/check";
 import { readAuthConfig } from "@/lib/auth/env";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { decideWorkflowRoute } from "@/lib/auth/workflow-queue";
 
 /**
  * EPIC 1-4 (F13): every page and API goes through here first. (TRD calls
@@ -17,8 +18,17 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
  * - `/login`             GET/HEAD only (the page itself redirects to `/`
  *                        when the cookie is already valid)
  * - `POST /api/auth`     the login endpoint
+ * - `GET /api/cron/cleanup`  exact path, GET only (EPIC 9-1). The route
+ *                        itself demands `Authorization: Bearer
+ *                        <CRON_SECRET>`, cookie or not.
  * - `/_next/static/...`  build assets (JS/CSS/next/font files)
  * - `/favicon.ico`, `/robots.txt`
+ * - Workflow queue deliveries, which carry their own credential instead
+ *   of a cookie (lib/auth/workflow-queue.ts): on Vercel the platform-
+ *   protected `/.well-known/workflow/v1/{flow,step}`; locally only via
+ *   `/_workflow/<secret>/...` from WORKFLOW_LOCAL_BASE_URL. Any other
+ *   `/.well-known/workflow/*` or `/_workflow/*` request gets 404, even
+ *   with a cookie.
  *
  * `/_next/image` is NOT allowed: nothing on the login page uses it, and
  * the image optimizer fetches arbitrary local URLs.
@@ -31,6 +41,14 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 const LOGIN_PATH = "/login";
 const AUTH_API_PATH = "/api/auth";
+/**
+ * Compared with `===` against `nextUrl.pathname`, which is already
+ * WHATWG-normalized (`..`/`.` segments resolved, `%2e%2e` too) — the
+ * same path the router resolves. Anything that isn't byte-for-byte this
+ * string (trailing slash, other case, `%2F`/`%63` encodings, a suffix)
+ * falls through to the cookie check, i.e. fails closed.
+ */
+const CRON_CLEANUP_PATH = "/api/cron/cleanup";
 
 function isStaticAsset(pathname: string): boolean {
   return (
@@ -68,15 +86,32 @@ function deny(request: NextRequest): NextResponse {
   return response;
 }
 
-function isWorkflowPath(pathname: string): boolean {
-  return pathname.startsWith("/.well-known/workflow/");
+function notFound(): NextResponse {
+  return new NextResponse(null, {
+    status: 404,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const method = request.method;
 
-  if (isStaticAsset(pathname) || isWorkflowPath(pathname)) return NextResponse.next();
+  if (isStaticAsset(pathname)) return NextResponse.next();
+
+  const workflow = decideWorkflowRoute(pathname);
+  if (workflow.kind === "pass") return NextResponse.next();
+  if (workflow.kind === "deny") return notFound();
+  if (workflow.kind === "rewrite") {
+    // Same origin, same method/headers/body; only the path changes.
+    const url = request.nextUrl.clone();
+    url.pathname = workflow.pathname;
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === CRON_CLEANUP_PATH && method === "GET") {
+    return NextResponse.next();
+  }
 
   if (pathname === LOGIN_PATH && (method === "GET" || method === "HEAD")) {
     return NextResponse.next();

@@ -148,6 +148,30 @@ describe("memory store", () => {
     });
   });
 
+  describe("deleteIfValue", () => {
+    it("deletes only when the stored value still matches", async () => {
+      const store = createMemoryStore();
+      const key = uniqueKey("del-if");
+
+      await store.set(key, "owner-b", { ttlSeconds: 10 });
+      await expect(store.deleteIfValue(key, "owner-a")).resolves.toBe(false);
+      await expect(store.get(key)).resolves.toBe("owner-b");
+
+      await expect(store.deleteIfValue(key, "owner-b")).resolves.toBe(true);
+      await expect(store.get(key)).resolves.toBeNull();
+    });
+
+    it("treats an expired key as absent", async () => {
+      const clock = createFakeClock();
+      const store = createMemoryStore({ now: clock.now });
+      const key = uniqueKey("del-if-expired");
+
+      await store.set(key, "owner-a", { ttlSeconds: 10 });
+      clock.advance(10_000);
+      await expect(store.deleteIfValue(key, "owner-a")).resolves.toBe(false);
+    });
+  });
+
   describe("ttl validation", () => {
     it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
       "rejects ttlSeconds=%s on set",

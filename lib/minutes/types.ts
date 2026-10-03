@@ -87,6 +87,17 @@ export interface JobRecord {
 
   // Email results (for sent / result screens)
   recipientResults?: RecipientResult[];
+  // A send handed (or about to be handed) to Gmail whose outcome hasn't
+  // been saved yet. Written before SMTP and cleared together with the
+  // results, so if it is still here the previous attempt was interrupted:
+  // look for `messageId` in Sent Mail before sending again (EPIC 7-4).
+  sendAttempt?: SendAttempt;
   // If client navigated away (sendBeacon for B)
   clientLeft?: boolean;
+}
+
+export interface SendAttempt {
+  messageId: string;
+  recipients: string[];
+  startedAt: number;
 }
